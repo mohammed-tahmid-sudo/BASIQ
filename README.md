@@ -5,17 +5,25 @@ Here is the grammar for my statically typed language:
 ```ebnf
 program         ::= { statement }
 
-statement       ::= var_decl ";"
-                  | assignment ";"
+statement       ::= var_decl
+                  | assignment
                   | if_stmt
                   | while_stmt
-                  | return_stmt ";"
-                  | expr ";"
+                  | return_stmt
+                  | expr_stmt
 
-var_decl        ::= "VAR" identifier "=" expr "AS" type
+var_decl        ::= "VAR" identifier "=" expr "AS" type ";"
 type            ::= "INTEGER" | "FLOAT" | "BOOLEAN" | "CHAR"
 
-assignment      ::= identifier "=" expr
+assignment      ::= identifier "=" expr ";"
+
+expr_stmt       ::= expr ";"
+
+if_stmt         ::= "IF" expr "THEN" { statement } [ "ELSE" { statement } ] "END;"
+
+while_stmt      ::= "WHILE" expr "DO" { statement } "END;"
+
+return_stmt     ::= "RETURN" expr ";"
 
 expr            ::= expr "+" term
                   | expr "-" term
@@ -30,12 +38,6 @@ factor          ::= number
                   | char
                   | identifier
                   | "(" expr ")"
-
-if_stmt         ::= "IF" expr "THEN" { statement } [ "ELSE" { statement } ] "END"
-
-while_stmt      ::= "WHILE" expr "DO" { statement } "END"
-
-return_stmt     ::= "RETURN" expr
 
 number          ::= integer | float
 boolean         ::= "TRUE" | "FALSE"

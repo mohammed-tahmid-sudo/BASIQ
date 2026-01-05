@@ -1,0 +1,38 @@
+[
+{
+  "directory": "/home/tahmid/BASIQ/build",
+  "command": "/usr/bin/c++  -I/home/tahmid/BASIQ/include -std=gnu++17 -o CMakeFiles/BASIQ.dir/src/ast.cpp.o -c /home/tahmid/BASIQ/src/ast.cpp",
+  "file": "/home/tahmid/BASIQ/src/ast.cpp",
+  "output": "CMakeFiles/BASIQ.dir/src/ast.cpp.o"
+},
+{
+  "directory": "/home/tahmid/BASIQ/build",
+  "command": "/usr/bin/c++  -I/home/tahmid/BASIQ/include -std=gnu++17 -o CMakeFiles/BASIQ.dir/src/codegen.cpp.o -c /home/tahmid/BASIQ/src/codegen.cpp",
+  "file": "/home/tahmid/BASIQ/src/codegen.cpp",
+  "output": "CMakeFiles/BASIQ.dir/src/codegen.cpp.o"
+},
+{
+  "directory": "/home/tahmid/BASIQ/build",
+  "command": "/usr/bin/c++  -I/home/tahmid/BASIQ/include -std=gnu++17 -o CMakeFiles/BASIQ.dir/src/lexer.cpp.o -c /home/tahmid/BASIQ/src/lexer.cpp",
+  "file": "/home/tahmid/BASIQ/src/lexer.cpp",
+  "output": "CMakeFiles/BASIQ.dir/src/lexer.cpp.o"
+},
+{
+  "directory": "/home/tahmid/BASIQ/build",
+  "command": "/usr/bin/c++  -I/home/tahmid/BASIQ/include -std=gnu++17 -o CMakeFiles/BASIQ.dir/src/main.cpp.o -c /home/tahmid/BASIQ/src/main.cpp",
+  "file": "/home/tahmid/BASIQ/src/main.cpp",
+  "output": "CMakeFiles/BASIQ.dir/src/main.cpp.o"
+},
+{
+  "directory": "/home/tahmid/BASIQ/build",
+  "command": "/usr/bin/c++  -I/home/tahmid/BASIQ/include -std=gnu++17 -o CMakeFiles/BASIQ.dir/src/parser.cpp.o -c /home/tahmid/BASIQ/src/parser.cpp",
+  "file": "/home/tahmid/BASIQ/src/parser.cpp",
+  "output": "CMakeFiles/BASIQ.dir/src/parser.cpp.o"
+},
+{
+  "directory": "/home/tahmid/BASIQ/build",
+  "command": "/usr/bin/c++  -I/home/tahmid/BASIQ/include -std=gnu++17 -o CMakeFiles/BASIQ.dir/src/utils.cpp.o -c /home/tahmid/BASIQ/src/utils.cpp",
+  "file": "/home/tahmid/BASIQ/src/utils.cpp",
+  "output": "CMakeFiles/BASIQ.dir/src/utils.cpp.o"
+}
+]

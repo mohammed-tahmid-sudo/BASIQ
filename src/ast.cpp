@@ -22,7 +22,9 @@ public:
 class VariableNode : public ast {
 public:
   std::string name;
-  VariableNode(const std::string &n) : name(n) {}
+  std::string type;
+  VariableNode(const std::string &n, const std::string tp)
+      : name(n), type(tp) {}
   std::string repr() override { return "VariableNode(" + name + ")"; }
 };
 
@@ -229,5 +231,16 @@ public:
       s += n->repr() + ",";
     s += "])";
     return s;
+  }
+};
+
+class PrintNode : public ast {
+public:
+  std::unique_ptr<ast> expr;
+
+  PrintNode(std::unique_ptr<ast> e) : expr(std::move(e)) {}
+
+  std::string repr() override {
+    return "PrintNode(" + (expr ? expr->repr() : "null") + ")";
   }
 };

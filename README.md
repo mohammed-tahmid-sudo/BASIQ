@@ -13,7 +13,7 @@ statement       ::= var_decl
                   | expr_stmt
 
 var_decl        ::= "VAR" identifier "=" expr "AS" type ";"
-type            ::= "INTEGER" | "FLOAT" | "BOOLEAN" | "CHAR"
+type            ::= "INTEGER" | "FLOAT" | "BOOLEAN" | "STRING"
 
 assignment      ::= identifier "=" expr ";"
 
@@ -24,6 +24,8 @@ if_stmt         ::= "IF" expr "THEN" { statement } [ "ELSE" { statement } ] "END
 while_stmt      ::= "WHILE" expr "DO" { statement } "END;"
 
 return_stmt     ::= "RETURN" expr ";"
+
+print_stmt      ::=  "PRINT" "(" expr ")" ";"
 
 expr            ::= expr "+" term
                   | expr "-" term

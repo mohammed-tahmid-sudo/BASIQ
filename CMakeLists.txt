@@ -3,10 +3,10 @@ project(BASIQ VERSION 0.1 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
-# set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Source files
 file(GLOB SOURCES "src/*.cpp")
+list(APPEND SOURCES "src/codegen.cpp")
 
 # Create executable
 add_executable(BASIQ ${SOURCES})
@@ -15,14 +15,41 @@ add_executable(BASIQ ${SOURCES})
 target_include_directories(BASIQ PRIVATE "${PROJECT_SOURCE_DIR}/include")
 
 # LLVM integration
-
+find_package(LLVM REQUIRED CONFIG)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION} at ${LLVM_DIR}")
 
-include_directories(${LLVM_INCLUDE_DIRS})
-add_definitions(${LLVM_DEFINITIONS})
+# Get compile flags
+execute_process(
+    COMMAND llvm-config --cxxflags
+    OUTPUT_VARIABLE LLVM_CXX_FLAGS
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
 
-llvm_map_components_to_libnames(llvm_libs support core irreader)
-target_link_libraries(BASIQ PRIVATE ${llvm_libs})
+# Get link flags
+execute_process(
+    COMMAND llvm-config --ldflags
+    OUTPUT_VARIABLE LLVM_LD_FLAGS
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+# Get libraries
+execute_process(
+    COMMAND llvm-config --libs all
+    OUTPUT_VARIABLE LLVM_LIBS
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+# Get system libraries
+execute_process(
+    COMMAND llvm-config --system-libs
+    OUTPUT_VARIABLE LLVM_SYSTEM_LIBS
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+# Add flags and libraries to target
+target_compile_options(BASIQ PRIVATE ${LLVM_CXX_FLAGS})
+target_link_libraries(BASIQ PRIVATE ${LLVM_LD_FLAGS} ${LLVM_LIBS} ${LLVM_SYSTEM_LIBS})
+
 
 # Output directory
 set_target_properties(BASIQ PROPERTIES
@@ -37,4 +64,3 @@ add_custom_target(run
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Building and running BASIQ..."
 )
-

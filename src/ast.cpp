@@ -4,8 +4,6 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
-#include "llvm/Support/TargetSelect.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include <llvm-18/llvm/IR/Constants.h>
 #include <llvm-18/llvm/IR/IRBuilder.h>

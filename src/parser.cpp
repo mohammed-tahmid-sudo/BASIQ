@@ -1,5 +1,5 @@
-#include "ast.cpp"
-#include "lexer.cpp"
+#include <ast.h>
+#include <lexer.h>
 #include <colors.h>
 #include <memory>
 #include <string>

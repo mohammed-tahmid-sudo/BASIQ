@@ -1,3 +1,5 @@
+
+#pragma once
 #ifndef AST_H
 #define AST_H
 
@@ -52,8 +54,7 @@ public:
   std::unique_ptr<ast> right;
   std::string op;
 
-  BinaryOperationNode(std::unique_ptr<ast> l,
-                      std::unique_ptr<ast> r,
+  BinaryOperationNode(std::unique_ptr<ast> l, std::unique_ptr<ast> r,
                       const std::string &o);
   std::string repr() override;
 };
@@ -97,8 +98,7 @@ public:
   std::string comp;
 
   ComparisonNode(std::vector<std::unique_ptr<ast>> l,
-                 std::vector<std::unique_ptr<ast>> r,
-                 const std::string &c);
+                 std::vector<std::unique_ptr<ast>> r, const std::string &c);
   std::string repr() override;
 };
 
@@ -119,8 +119,7 @@ public:
   std::unique_ptr<ast> condition;
   std::vector<std::unique_ptr<ast>> body;
 
-  WhileNode(std::unique_ptr<ast> cond,
-            std::vector<std::unique_ptr<ast>> b);
+  WhileNode(std::unique_ptr<ast> cond, std::vector<std::unique_ptr<ast>> b);
   std::string repr() override;
 };
 
@@ -131,10 +130,8 @@ public:
   std::unique_ptr<ast> increment;
   std::vector<std::unique_ptr<ast>> body;
 
-  ForNode(std::unique_ptr<ast> i,
-          std::unique_ptr<ast> cond,
-          std::unique_ptr<ast> inc,
-          std::vector<std::unique_ptr<ast>> b);
+  ForNode(std::unique_ptr<ast> i, std::unique_ptr<ast> cond,
+          std::unique_ptr<ast> inc, std::vector<std::unique_ptr<ast>> b);
   std::string repr() override;
 };
 
@@ -144,8 +141,7 @@ public:
   std::vector<std::string> parameters;
   std::vector<std::unique_ptr<ast>> body;
 
-  FunctionNode(const std::string &n,
-               std::vector<std::string> params,
+  FunctionNode(const std::string &n, std::vector<std::string> params,
                std::vector<std::unique_ptr<ast>> b);
   std::string repr() override;
 };
@@ -158,4 +154,3 @@ public:
 };
 
 #endif
-

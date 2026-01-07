@@ -76,4 +76,5 @@ FunctionNode::FunctionNode(const std::string &n,
 std::string FunctionNode::repr() { return "FunctionNode(" + name + ")"; }
 
 PrintNode::PrintNode(std::unique_ptr<ast> e) : expr(std::move(e)) {}
-std::string PrintNode::repr() { return "PrintNode"; }
+std::string PrintNode::repr() { return "PrintNode("+ expr->repr() + ")";
+}

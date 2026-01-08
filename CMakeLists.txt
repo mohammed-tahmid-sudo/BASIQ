@@ -4,9 +4,12 @@ project(BASIQ VERSION 0.1 LANGUAGES CXX C)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+# Enable debug symbols
+set(CMAKE_BUILD_TYPE Debug)
+
 # Source files
 file(GLOB SOURCES "src/*.cpp")
-list(APPEND SOURCES "src/codegen.cpp")
+# list(APPEND SOURCES "src/codegen.cpp")  # if needed, can be removed if already in GLOB
 
 # Create executable
 add_executable(BASIQ ${SOURCES})
@@ -47,9 +50,8 @@ execute_process(
 )
 
 # Add flags and libraries to target
-target_compile_options(BASIQ PRIVATE ${LLVM_CXX_FLAGS})
+target_compile_options(BASIQ PRIVATE ${LLVM_CXX_FLAGS} -g)
 target_link_libraries(BASIQ PRIVATE ${LLVM_LD_FLAGS} ${LLVM_LIBS} ${LLVM_SYSTEM_LIBS})
-
 
 # Output directory
 set_target_properties(BASIQ PROPERTIES
@@ -64,3 +66,4 @@ add_custom_target(run
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Building and running BASIQ..."
 )
+

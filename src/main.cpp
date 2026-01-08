@@ -1,31 +1,43 @@
-// // src/main.cpp
-// #include <parser.h>
-// #include <ast.h>
+// src/main.cpp
 // #include <lexer.h>
-// #include <colors.h>
-// #include <iostream>
 
-// int main() {
-//   Lexer lex;
-//   // auto tokens = lex.lexer("VAR x = 5 AS INTEGER; IF x > 3 THEN RETURN x;
-//   // END;");
+#include "lexer.cpp"
+#include <ast.h>
+#include <colors.h>
+#include <iostream>
+#include <ostream>
+#include <parser.h>
 
-//   auto tokens = lex.lexer("PRINT(1)");
-//   for (auto &tok : tokens)
-//     std::cout << tok[0] << " : " << tok[1] << "\n";
+int main() {
+  std::cout << Colors::BOLD << Colors::GREEN << "LEXED VALUE" << Colors::RESET
+            << "\n";
 
-//   std::cout << Colors::BOLD << Colors::GREEN << "PARSED VALUE" << Colors::RESET
-//             << "\n";
+  Lexer lex;
+  // auto tokens = lex.lexer("VAR x = 5 AS INTEGER; IF x > 3 THEN RETURN x;
+  // END;");
 
-//   std::vector<std::vector<std::vector<std::string>>> fullcode;
-//   fullcode.push_back(tokens);
+  std::vector<std::vector<std::vector<std::string>>> fullcode;
 
-//   Parser parse;
+  fullcode.push_back(lex.lexer("VAR a = 5 AS INTEGER"));
+  fullcode.push_back(lex.lexer("VAR b = 5 AS INTEGER"));
+  fullcode.push_back(lex.lexer("WHILE a + b DO "));
+  fullcode.push_back(lex.lexer("a - b END"));
 
-//   std::vector<std::unique_ptr<ast>> parsed_output = parse.Parse(fullcode);
-//   for (auto &p : parsed_output) {
-//     std::cout << p->repr();
-//   }
+  for (auto &toks : fullcode) {
+    for (auto &tok : toks) {
+      std::cout << tok[0] << " : " << tok[1] << std::endl;
+    }
+  }
 
-//   std::cout << "\n";
-// }
+  std::cout << Colors::BOLD << Colors::GREEN << "PARSED VALUE" << Colors::RESET
+            << "\n";
+
+  Parser parse;
+
+  std::vector<std::unique_ptr<ast>> parsed_output = parse.Parse(fullcode);
+  for (auto &p : parsed_output) {
+    std::cout << p->repr() << "\n";
+  }
+
+  std::cout << "\n";
+}

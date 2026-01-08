@@ -1,115 +1,91 @@
-#include <llvm-18/llvm/IR/IRBuilder.h>
-#include <llvm-18/llvm/IR/LLVMContext.h>
-#include <llvm-18/llvm/IR/Value.h>
-#include <string>
-#include <iostream>
+#include "ast.h"
 
-static llvm::LLVMContext TheContext;
-static std::unique_ptr<llvm::Module> TheModule =
-    std::make_unique<llvm::Module>("my_module", TheContext);
-static llvm::IRBuilder<> Builder(TheContext);
-static std::unordered_map<std::string, llvm::AllocaInst *>
-    NamedValues; // variable name -> alloca (or value)
+// -------- Expression / Value --------
 
-struct ast
-{
-  virtual std::string repr() = 0;
-  virtual llvm::Value *codegen(llvm::LLVMContext &context,
-                               llvm::IRBuilder<> &builder) = 0;
-  virtual ~ast() = 0;
-};
-
-class NumberNode : public ast
-{
-public:
-  int number;
-
-  llvm::Value *codegen(llvm::LLVMContext &context,
-                       llvm::IRBuilder<> &builder)
-  {
-    return llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), number, true);
-  }
-  std::string repr()
-  {
-    return "NumberNode(" + number + ')';
-  }
-};
-
-class VariableNode : public ast
-{
-public:
-  std::string VarName;
-  std::string Type;
-
-  llvm::Value *codegen(llvm::LLVMContext &context, llvm::IRBuilder<> &builder) override
-  {
-    auto it = NamedValues.find(VarName);
-    if (it == NamedValues.end())
-      throw std::runtime_error("Unknown variable: " + VarName);
-
-    llvm::AllocaInst *alloca = it->second;
-
-    // LLVM 18 requires the type explicitly
-    return builder.CreateLoad(alloca->getAllocatedType(), alloca, VarName + "_val");
-  }
-};
-
-
-llvm::Function *createMainFunction() {
-    llvm::FunctionType *FT =
-        llvm::FunctionType::get(llvm::Type::getInt32Ty(TheContext), false);
-    llvm::Function *F =
-        llvm::Function::Create(FT, llvm::Function::ExternalLinkage, "main", TheModule.get());
-
-    llvm::BasicBlock *BB = llvm::BasicBlock::Create(TheContext, "entry", F);
-    Builder.SetInsertPoint(BB);
-
-    return F;
+NumberNode::NumberNode(int n) : number(n) {}
+std::string NumberNode::repr() {
+  return "NumberNode(" + std::to_string(number) + ")";
 }
 
-llvm::AllocaInst *createEntryBlockAlloca(llvm::Function *TheFunction, const std::string &VarName) {
-    llvm::IRBuilder<> TmpB(&TheFunction->getEntryBlock(),
-                           TheFunction->getEntryBlock().begin());
-    return TmpB.CreateAlloca(llvm::Type::getInt32Ty(TheContext), nullptr, VarName);
+VariableNode::VariableNode(const std::string &n) : name(n) {}
+std::string VariableNode::repr() { return "VariableNode(" + name + ")"; }
+
+VariableDeclareNode::VariableDeclareNode(const std::string &n,
+                                         const std::string &tp)
+    : name(n), type(tp) {}
+std::string VariableDeclareNode::repr() {
+  return "VariableDeclareNode(" + name + ", type=" + type + ")";
 }
 
-
-
-// ===== Helpers =====
-llvm::Function *createMainFunction() {
-    auto FT = llvm::FunctionType::get(llvm::Type::getInt32Ty(TheContext), false);
-    auto F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, "main", TheModule.get());
-    auto BB = llvm::BasicBlock::Create(TheContext, "entry", F);
-    Builder.SetInsertPoint(BB);
-    return F;
+AssignmentNode::AssignmentNode(std::unique_ptr<VariableNode> n,
+                               std::vector<std::unique_ptr<ast>> v,
+                               const std::string &t)
+    : name(std::move(n)), value(std::move(v)), type(t) {}
+std::string AssignmentNode::repr() {
+  std::string s = "AssignmentNode(" + name->repr() + ", value=[";
+  for (auto &v : value)
+    s += v->repr() + ",";
+  s += "], type=" + type + ")";
+  return s;
 }
 
-llvm::AllocaInst *createEntryBlockAlloca(llvm::Function *TheFunction, const std::string &VarName) {
-    llvm::IRBuilder<> TmpB(&TheFunction->getEntryBlock(), TheFunction->getEntryBlock().begin());
-    return TmpB.CreateAlloca(llvm::Type::getInt32Ty(TheContext), nullptr, VarName);
+BinaryOperationNode::BinaryOperationNode(std::unique_ptr<ast> l,
+                                         std::unique_ptr<ast> r,
+                                         const std::string &o)
+    : left(std::move(l)), right(std::move(r)), op(o) {}
+std::string BinaryOperationNode::repr() {
+  return "BinaryOperationNode(op=" + op + ", left=" + left->repr() +
+         ", right=" + right->repr() + ")";
 }
 
-// ===== Main =====
-int main() {
-    // Use unique_ptr for AST nodes
-    std::unique_ptr<NumberNode> numNode = std::make_unique<NumberNode>();
-    numNode->number = 42;
+IdentifierNode::IdentifierNode(const std::string &n) : id(n) {}
+std::string IdentifierNode::repr() { return "IdentifierNode(" + id + ")"; }
 
-    std::unique_ptr<VariableNode> varNode = std::make_unique<VariableNode>();
-    varNode->VarName = "x";
+StringNode::StringNode(const std::string &v) : value(v) {}
+std::string StringNode::repr() { return "StringNode(" + value + ")"; }
 
-    // Function and variable
-    llvm::Function *MainFunc = createMainFunction();
-    llvm::AllocaInst *xAlloca = createEntryBlockAlloca(MainFunc, "x");
-    NamedValues["x"] = xAlloca;
+// -------- Control Flow --------
 
-    // Store and load
-    Builder.CreateStore(numNode->codegen(TheContext, Builder), xAlloca);
-    llvm::Value *loadedVal = varNode->codegen(TheContext, Builder);
-
-    // Return
-    Builder.CreateRet(loadedVal);
-
-    // Print IR
-    TheModule->print(llvm::outs(), nullptr);
+ReturnNode::ReturnNode(std::unique_ptr<ast> e) : expr(std::move(e)) {}
+std::string ReturnNode::repr() {
+  return "ReturnNode(" + (expr ? expr->repr() : "null") + ")";
 }
+
+std::string BreakNode::repr() { return "BreakNode"; }
+std::string ContinueNode::repr() { return "ContinueNode"; }
+
+ComparisonNode::ComparisonNode(std::vector<std::unique_ptr<ast>> l,
+                               std::vector<std::unique_ptr<ast>> r,
+                               const std::string &c)
+    : left(std::move(l)), right(std::move(r)), comp(c) {}
+std::string ComparisonNode::repr() {
+  return "ComparisonNode(comp=" + comp + ")";
+}
+
+IfNode::IfNode(std::vector<std::unique_ptr<ast>> cond,
+               std::vector<std::unique_ptr<ast>> ifBody,
+               std::vector<std::unique_ptr<ast>> elseB)
+    : condition(std::move(cond)), body(std::move(ifBody)),
+      elseBody(std::move(elseB)) {}
+std::string IfNode::repr() { return "IfNode"; }
+
+WhileNode::WhileNode(std::unique_ptr<ast> cond,
+                     std::vector<std::unique_ptr<ast>> b)
+    : condition(std::move(cond)), body(std::move(b)) {}
+std::string WhileNode::repr() { return "WhileNode"; }
+
+ForNode::ForNode(std::unique_ptr<ast> i, std::unique_ptr<ast> cond,
+                 std::unique_ptr<ast> inc, std::vector<std::unique_ptr<ast>> b)
+    : init(std::move(i)), condition(std::move(cond)), increment(std::move(inc)),
+      body(std::move(b)) {}
+std::string ForNode::repr() { return "ForNode"; }
+
+FunctionNode::FunctionNode(const std::string &n,
+                           std::vector<std::string> params,
+                           std::vector<std::unique_ptr<ast>> b)
+    : name(n), parameters(std::move(params)), body(std::move(b)) {}
+std::string FunctionNode::repr() { return "FunctionNode(" + name + ")"; }
+
+PrintNode::PrintNode(std::unique_ptr<ast> arg) : args(std::move(arg)) {}
+std::string PrintNode::repr() { return "PrintNode(" + args->repr() + ")"; }
+

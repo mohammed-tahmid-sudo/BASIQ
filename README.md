@@ -11,21 +11,22 @@ statement       ::= var_decl
                   | while_stmt
                   | return_stmt
                   | expr_stmt
+                  | print_stmt
 
-var_decl        ::= "VAR" identifier "=" expr "AS" type ";"
-type            ::= "INTEGER" | "FLOAT" | "BOOLEAN" | "STRING"
+var_decl        ::= "VAR" identifier "=" expr "AS" type
+type            ::= "INTEGER" | "FLOAT" | "BOOLEAN" | "CHAR" | "STRING"
 
-assignment      ::= identifier "=" expr ";"
+assignment      ::= identifier "=" expr
 
-expr_stmt       ::= expr ";"
+expr_stmt       ::= expr
 
-if_stmt         ::= "IF" expr "THEN" { statement } [ "ELSE" { statement } ] "END;"
+if_stmt         ::= "IF" expr "THEN" { statement } [ "ELSE" { statement } ] "END IF"
 
-while_stmt      ::= "WHILE" expr "DO" { statement } "END;"
+while_stmt      ::= "WHILE" expr "DO" { statement } "END WHILE"
 
-return_stmt     ::= "RETURN" expr ";"
+return_stmt     ::= "RETURN" expr
 
-print_stmt      ::=  "PRINT" "(" expr ")" ";"
+print_stmt      ::= "PRINT" "(" expr { "," expr } ")"
 
 expr            ::= expr "+" term
                   | expr "-" term
@@ -44,5 +45,5 @@ factor          ::= number
 number          ::= integer | float
 boolean         ::= "TRUE" | "FALSE"
 char            ::= "'" any_character "'"
+string_literal  ::= '"' { any_character } '"'
 identifier      ::= letter { letter | digit | "_" }
-

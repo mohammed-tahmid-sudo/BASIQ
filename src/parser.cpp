@@ -136,24 +136,73 @@ Parser::Parse(std::vector<std::vector<std::vector<std::string>>> input)
           count++;
         }
 
-        auto argument = std::vector<std::vector<std::string>>(
+        auto condition = std::vector<std::vector<std::string>>(
             input[x].begin() + y + 1, input[x].begin() + count);
 
         y = count;
+        // assume DoKeyword found at (startX,startY) where startX==x and startY==y
+        size_t startX = x;
+        size_t startY = y;
+        int nesting = 1;
+        bool found = false;
+        size_t endX = startX, endY = startY + 1;
 
-        size_t DoKeyWordLocationX = x;
-        size_t DoKeyWordLocationY = y;
-
-        for (size_t i = DoKeyWordLocationX; i < input.size(); ++i)
+        // find matching EndKeyword
+        for (size_t i = startX; i < input.size() && !found; ++i)
         {
-          for (size_t j = DoKeyWordLocationY; i < input[DoKeyWordLocationX].size(); ++j)
+          size_t j = (i == startX ? startY + 1 : 0);
+          for (; j < input[i].size(); ++j)
           {
-
-            if (input[i][j][0] == )
+            if (input[i][j][0] == "DoKeyword")
+              ++nesting;
+            else if (input[i][j][0] == "EndKeyword")
             {
+              --nesting;
+              if (nesting == 0)
+              {
+                endX = i;
+                endY = j;
+                found = true;
+                break;
+              }
             }
           }
         }
+
+        if (!found)
+        {
+          // handle error: unmatched Do
+          throw std::runtime_error("Unmatched DoKeyword");
+        }
+
+        // collect tokens between (startX,startY) and (endX,endY), excluding Do and End
+        std::vector<std::vector<std::string>> argument;
+        for (size_t i = startX; i <= endX; ++i)
+        {
+          size_t sj = (i == startX ? startY + 1 : 0);
+          size_t ej = (i == endX ? endY : input[i].size()); // stop before EndKeyword
+          for (size_t j = sj; j < ej; ++j)
+          {
+            argument.push_back(input[i][j]); // each input[i][j] is vector<string>
+          }
+        }
+
+        // if you want to resume parsing after the EndKeyword:
+        x = endX;
+        y = endY;
+        auto parsed_condition = Parse({condition});
+        if (parsed_condition.empty())
+        {
+          std::cerr << "ERROR PARSED CONDITION IS EMPTY\n";
+        }
+
+        auto parsed_argument = Parse({argument});
+        if (parsed_argument.empty())
+        {
+          std::cerr << "ERROR PARSED argument IS EMPTY\n";
+        }
+
+        output.push_back(std::make_unique<ast>(WhileNode(std::move(parsed_condition[0]), std::move(parsed_argument))));
       }
     }
   }

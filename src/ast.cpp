@@ -1,4 +1,5 @@
 #include "ast.h"
+#include <memory>
 
 // -------- Expression / Value --------
 
@@ -10,11 +11,15 @@ std::string NumberNode::repr() {
 VariableNode::VariableNode(const std::string &n) : name(n) {}
 std::string VariableNode::repr() { return "VariableNode(" + name + ")"; }
 
-VariableDeclareNode::VariableDeclareNode(const std::string &n,
-                                         const std::string &tp)
-    : name(n), type(tp) {}
+// Correct constructor
+VariableDeclareNode::VariableDeclareNode(std::unique_ptr<VariableNode> n,
+                                         std::string tp,
+                                         std::vector<std::unique_ptr<ast>> cntnts)
+    : name(std::move(n)), type(std::move(tp)), contents(std::move(cntnts)) {}
+
+
 std::string VariableDeclareNode::repr() {
-  return "VariableDeclareNode(" + name + ", type=" + type + ")";
+  return "VariableDeclareNode(" + name->repr() + ", type=" + type + ")";
 }
 
 AssignmentNode::AssignmentNode(std::unique_ptr<VariableNode> n,

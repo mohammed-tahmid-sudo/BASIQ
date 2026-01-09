@@ -18,7 +18,8 @@ int main() {
 
   std::vector<std::vector<std::vector<std::string>>> fullcode;
 
-  fullcode.push_back(lex.lexer("VAR a = 5 AS INTEGER"));
+  fullcode.push_back(lex.lexer("VAR a = 3 AS INTEGER;"));
+  fullcode.push_back(lex.lexer("a = 7"));
   fullcode.push_back(lex.lexer("VAR b = 5 AS INTEGER"));
   fullcode.push_back(lex.lexer("WHILE a + b DO "));
   fullcode.push_back(lex.lexer("a - b END"));
@@ -32,9 +33,9 @@ int main() {
   std::cout << Colors::BOLD << Colors::GREEN << "PARSED VALUE" << Colors::RESET
             << "\n";
 
-  Parser parse;
+  Parser parse(fullcode);
 
-  std::vector<std::unique_ptr<ast>> parsed_output = parse.Parse(fullcode);
+  std::vector<std::unique_ptr<ast>> parsed_output = parse.Parse();
   for (auto &p : parsed_output) {
     std::cout << p->repr() << "\n";
   }

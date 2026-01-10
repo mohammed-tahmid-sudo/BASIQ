@@ -18,11 +18,12 @@ int main() {
 
   std::vector<std::vector<std::vector<std::string>>> fullcode;
 
-  fullcode.push_back(lex.lexer("VAR a = 3 AS INTEGER;"));
-  fullcode.push_back(lex.lexer("a = 7"));
-  fullcode.push_back(lex.lexer("VAR b = 5 AS INTEGER"));
-  fullcode.push_back(lex.lexer("WHILE a + b DO "));
-  fullcode.push_back(lex.lexer("a - b END"));
+  fullcode.push_back(lex.lexer("VAR a AS INTEGER;"));
+  // fullcode.push_back(lex.lexer("a = 7"));
+  // fullcode.push_back(lex.lexer("VAR b = 5 AS INTEGER"));
+  // fullcode.push_back(lex.lexer("WHILE a + b DO "));
+  // fullcode.push_back(lex.lexer("a - b END"));
+  fullcode.push_back(lex.lexer("IF (A - b ) THEN a + B END"));
 
   for (auto &toks : fullcode) {
     for (auto &tok : toks) {

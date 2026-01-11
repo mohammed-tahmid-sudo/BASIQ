@@ -26,6 +26,8 @@ public:
         output.push_back({"IfKeyword", holder});
       else if (uholder == "ELSE")
         output.push_back({"ElseKeyword", holder});
+      else if (uholder == "ELIF")
+        output.push_back({"ElifKeyword", holder});
       else if (uholder == "THEN")
         output.push_back({"ThenKeyword", holder});
       else if (uholder == "WHILE")

@@ -19,7 +19,8 @@ int main() {
   std::vector<std::vector<std::vector<std::string>>> fullcode;
 
   // fullcode.push_back(lex.lexer("VAR a AS INTEGER;"));
-  fullcode.push_back(lex.lexer("IF (1) THEN 2 END"));
+  // fullcode.push_back(lex.lexer("IF (1) THEN 2 END ELIF (3) THEN 34 END ELSE (234) 32423 END"));
+  fullcode.push_back(lex.lexer("IF (1) THEN 2 END ELSE THEN 32423 END 12 12 12 12 12 12 12 12 12"));
 
   for (auto &toks : fullcode) {
     for (auto &tok : toks) {

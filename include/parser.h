@@ -1,6 +1,7 @@
 // parser.h
 #pragma once
 #include <ast.h>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <vector>
@@ -8,8 +9,8 @@
 class Parser {
 
 public:
-  int x = 0;
-  int y = 0;
+  size_t x = 0;
+  size_t y = 0;
 
   std::vector<std::vector<std::vector<std::string>>> input;
 

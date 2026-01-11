@@ -1,13 +1,12 @@
 
 #include "parser.h"
 #include "ast.h"
-#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <memory>
 #include <ostream>
 #include <string>
-#include <type_traits>
+#include <vector>
 
 std::vector<std::unique_ptr<ast>>
 Parser::Parse(std::vector<std::vector<std::vector<std::string>>> input,
@@ -15,19 +14,27 @@ Parser::Parse(std::vector<std::vector<std::vector<std::string>>> input,
 
   std::vector<std::unique_ptr<ast>> output;
 
-  auto Peek = [&](int i) {
-    if (i != 1 && i != 0) {
+  auto Peek = [&](int i) -> std::string {
+    if (i != 0 && i != 1)
       std::cerr << "ERROR TRYING TO ACCESS OUTSIDE VALUE\n";
+    if (x >= input.size() || y >= input[x].size() || i >= input[x][y].size()) {
+      std::cerr << "OUT OF BOUNDS\n";
+      return "EOF"; // safe fallback
     }
-
     return input[x][y][i];
   };
 
   auto consume = [&]() {
-    if (input[x][y][0] != "EOF")
+    if (input[x][y][0] != "EOF") {
       y++;
-    else
+      if (y >= input[x].size()) {
+        y = 0;
+        x++;
+      }
+    } else {
       x++;
+      y = 0;
+    }
   };
 
   if (Peek(0) == "Number") {
@@ -37,47 +44,104 @@ Parser::Parse(std::vector<std::vector<std::vector<std::string>>> input,
 
     output.push_back(std::make_unique<NumberNode>(std::stoi(number)));
   }
+  if (Peek(0) == "IfKeyword") {
 
-  if (Peek(0) == "IfKeyword" && parse_stmt) {
-    std::vector<std::vector<std::string>> args;
-    size_t endcounter = 0;
-    std::vector<std::vector<std::string>> true_args;
+    auto ParseIfAndElifStatement = [&]() {
+      std::vector<std::vector<std::string>> args;
+      std::vector<std::vector<std::string>> block;
 
-    consume();
-    if (Peek(0) == "LParen") {
-      consume();
+      consume(); // consume if or elif keyword
+      if (Peek(0) == "LParen") {
+        while (Peek(0) != "RParen") {
+          consume();
+          args.push_back({Peek(0), Peek(1)});
+        }
 
-      while (Peek(0) != "RParen") {
-        args.push_back({Peek(0), Peek(1)});
-        consume();
-      }
-    }
-    if (args.empty()) {
-      std::cerr << "EMPTY ARGUMENT";
-    }
+        if (Peek(0) == "RParen") {
+          args.pop_back();
+          consume();
 
-    if (Peek(0) == "RParen") {
-      consume();
+          if (Peek(0) == "ThenKeyword") {
+            size_t counter = 0;
+            while (true) {
 
-      if (Peek(0) == "ThenKeyword") {
-        while (true) {
+              if (Peek(0) == "ThenKeyword") {
+                ++counter;
+                consume();
+              } else if (Peek(0) == "EndKeyword") {
+                --counter;
+                consume();
+              } else {
+                block.push_back({Peek(0), Peek(1)});
+                consume();
+              }
 
-          if (Peek(0) == "EndKeyword") {
-            --endcounter;
-          } else if (Peek(0) == "StartKeyword") {
-            ++endcounter;
-          } else {
-            true_args.push_back({Peek(0), Peek(1)});
-            consume();
-
+              if (counter == 0) {
+                break;
+              }
+            }
           }
-
         }
       }
-    }
+      return std::tuple(args, block);
+    };
 
-    for (auto &tok : true_args) {
-      std::cout << tok[0] << " : " << tok[1] << std::endl;
+    auto [args, block] = ParseIfAndElifStatement();
+    bool ElifBlockFound = false;
+
+    // while (true) {
+    //   if (Peek(0) == "ElifKeyword") {
+    //     auto [Elif_args, Elif_block] = ParseIfAndElifStatement();
+    //     ElifBlockFound = true;
+
+    //   } else if (Peek(0) == "ElseKeyword") {
+
+    //     auto [Else_args, Else_block] = ParseIfAndElifStatement();
+    //     break;
+
+    //   } else {
+    //     break;
+    //   }
+    // }
+    if (Peek(0) == "ElseKeyword") {
+      std::vector<std::vector<std::string>> else_block;
+      size_t counter = 0;
+
+      consume();
+      while (true) {
+
+        if (Peek(0) == "ThenKeyword") {
+          ++counter;
+          consume();
+        } else if (Peek(0) == "EndKeyword") {
+          --counter;
+          consume();
+        } else {
+          else_block.push_back({Peek(0), Peek(1)});
+          consume();
+        }
+
+        if (counter == 0) {
+          break;
+        }
+      }
+
+      auto args_parsed = Parse({args}, false);
+      auto block_parsed = Parse({block});
+      auto else_block_parsed = Parse({else_block});
+
+      output.push_back(std::make_unique<IfNode>(std::move(args_parsed),
+                                                std::move(block_parsed),
+                                                std::move(else_block_parsed)));
+
+    } else {
+      auto args_parsed = Parse({args}, false);
+      auto block_parsed = Parse({block});
+      output.push_back(std::make_unique<IfNode>(
+          std::move(args_parsed), std::move(block_parsed),
+          std::vector<std::unique_ptr<ast>>{}
+
+          ));
     }
   }
 

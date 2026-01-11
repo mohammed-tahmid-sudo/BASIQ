@@ -131,7 +131,7 @@ public:
     }
 
     flushIdentifier();
-    output.push_back({"EOF", ""});
+    output.push_back({"EOF", "EOF"});
     return output;
   }
 };

@@ -12,11 +12,10 @@ VariableNode::VariableNode(const std::string &n) : name(n) {}
 std::string VariableNode::repr() { return "VariableNode(" + name + ")"; }
 
 // Correct constructor
-VariableDeclareNode::VariableDeclareNode(std::unique_ptr<VariableNode> n,
-                                         std::string tp,
-                                         std::vector<std::unique_ptr<ast>> cntnts)
+VariableDeclareNode::VariableDeclareNode(
+    std::unique_ptr<VariableNode> n, std::string tp,
+    std::vector<std::unique_ptr<ast>> cntnts)
     : name(std::move(n)), type(std::move(tp)), contents(std::move(cntnts)) {}
-
 
 std::string VariableDeclareNode::repr() {
   return "VariableDeclareNode(" + name->repr() + ", type=" + type + ")";
@@ -72,7 +71,27 @@ IfNode::IfNode(std::vector<std::unique_ptr<ast>> cond,
                std::vector<std::unique_ptr<ast>> elseB)
     : condition(std::move(cond)), body(std::move(ifBody)),
       elseBody(std::move(elseB)) {}
-std::string IfNode::repr() { return "IfNode"; }
+std::string IfNode::repr() {
+  std::string condStr, ifStr, elseStr;
+
+  for (auto &c : condition)
+    condStr += c->repr() + ", ";
+  for (auto &b : body)
+    ifStr += b->repr() + ", ";
+  for (auto &e : elseBody)
+    elseStr += e->repr() + ", ";
+
+  // Remove trailing comma and space
+  if (!condStr.empty())
+    condStr.pop_back(), condStr.pop_back();
+  if (!ifStr.empty())
+    ifStr.pop_back(), ifStr.pop_back();
+  if (!elseStr.empty())
+    elseStr.pop_back(), elseStr.pop_back();
+
+  return "IfNode(condition=[" + condStr + "], ifBody=[" + ifStr +
+         "], elseBody=[" + elseStr + "])";
+}
 
 WhileNode::WhileNode(std::unique_ptr<ast> cond,
                      std::vector<std::unique_ptr<ast>> b)
@@ -93,4 +112,3 @@ std::string FunctionNode::repr() { return "FunctionNode(" + name + ")"; }
 
 PrintNode::PrintNode(std::unique_ptr<ast> arg) : args(std::move(arg)) {}
 std::string PrintNode::repr() { return "PrintNode(" + args->repr() + ")"; }
-

@@ -1,5 +1,5 @@
 #pragma once
-#include <algorithm>
+#include "llvm/IR/Value.h"
 #include <memory>
 #include <string>
 #include <vector>
@@ -8,6 +8,7 @@
 
 struct ast {
   virtual std::string repr() = 0;
+  virtual llvm::Value *codegen() = 0;
   virtual ~ast() = default;
 };
 
@@ -18,6 +19,7 @@ public:
   int number;
   explicit NumberNode(int n);
   std::string repr() override;
+  llvm::Value *codegen() override;
 };
 
 class VariableNode : public ast {
@@ -25,6 +27,7 @@ public:
   std::string name;
   explicit VariableNode(const std::string &n);
   std::string repr() override;
+  llvm::Value *codegen() override;
 };
 
 class VariableDeclareNode : public ast {
@@ -37,6 +40,7 @@ public:
                       std::vector<std::unique_ptr<ast>> cntnts);
 
   std::string repr() override;
+  llvm::Value *codegen() override;
 };
 
 class AssignmentNode : public ast {
@@ -49,6 +53,7 @@ public:
                  std::vector<std::unique_ptr<ast>> v,
                  const std::string &t = "");
   std::string repr() override;
+  llvm::Value *codegen() override;
 };
 
 class BinaryOperationNode : public ast {
@@ -60,6 +65,7 @@ public:
   BinaryOperationNode(std::unique_ptr<ast> l, std::unique_ptr<ast> r,
                       const std::string &o);
   std::string repr() override;
+  llvm::Value *codegen() override;
 };
 
 class IdentifierNode : public ast {
@@ -67,6 +73,7 @@ public:
   std::string id;
   explicit IdentifierNode(const std::string &n);
   std::string repr() override;
+  llvm::Value *codegen() override;
 };
 
 class StringNode : public ast {
@@ -74,6 +81,7 @@ public:
   std::string value;
   explicit StringNode(const std::string &v);
   std::string repr() override;
+  llvm::Value *codegen() override;
 };
 
 // -------- Control Flow --------
@@ -83,16 +91,19 @@ public:
   std::unique_ptr<ast> expr;
   explicit ReturnNode(std::unique_ptr<ast> e = nullptr);
   std::string repr() override;
+  llvm::Value *codegen() override;
 };
 
 class BreakNode : public ast {
 public:
   std::string repr() override;
+  llvm::Value *codegen() override;
 };
 
 class ContinueNode : public ast {
 public:
   std::string repr() override;
+  llvm::Value *codegen() override;
 };
 
 class ComparisonNode : public ast {
@@ -104,6 +115,7 @@ public:
   ComparisonNode(std::vector<std::unique_ptr<ast>> l,
                  std::vector<std::unique_ptr<ast>> r, const std::string &c);
   std::string repr() override;
+  llvm::Value *codegen() override;
 };
 
 class IfNode : public ast {
@@ -116,6 +128,7 @@ public:
          std::vector<std::unique_ptr<ast>> ifBody,
          std::vector<std::unique_ptr<ast>> elseBody = {});
   std::string repr() override;
+  llvm::Value *codegen() override;
 };
 
 class WhileNode : public ast {
@@ -125,6 +138,7 @@ public:
 
   WhileNode(std::unique_ptr<ast> cond, std::vector<std::unique_ptr<ast>> b);
   std::string repr() override;
+  llvm::Value *codegen() override;
 };
 
 class ForNode : public ast {
@@ -137,6 +151,7 @@ public:
   ForNode(std::unique_ptr<ast> i, std::unique_ptr<ast> cond,
           std::unique_ptr<ast> inc, std::vector<std::unique_ptr<ast>> b);
   std::string repr() override;
+  llvm::Value *codegen() override;
 };
 
 class FunctionNode : public ast {
@@ -148,6 +163,7 @@ public:
   FunctionNode(const std::string &n, std::vector<std::string> params,
                std::vector<std::unique_ptr<ast>> b);
   std::string repr() override;
+  llvm::Value *codegen() override;
 };
 
 class PrintNode : public ast {
@@ -155,4 +171,5 @@ public:
   std::unique_ptr<ast> args;
   explicit PrintNode(std::unique_ptr<ast> arg);
   std::string repr() override;
+  llvm::Value *codegen() override;
 };

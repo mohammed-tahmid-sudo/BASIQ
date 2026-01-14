@@ -1,4 +1,5 @@
 #include "codegen.h"
+#include "globals.h"
 #include <ast.h>
 #include <llvm-18/llvm/IR/Verifier.h>
 #include <llvm/Support/raw_ostream.h>

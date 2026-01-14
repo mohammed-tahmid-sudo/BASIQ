@@ -5,11 +5,7 @@
 #include <llvm-18/llvm/IR/Intrinsics.h>
 #include <llvm-18/llvm/IR/Type.h>
 #include <llvm-18/llvm/IR/Value.h>
-
-extern std::unique_ptr<llvm::LLVMContext> TheContext;
-extern std::unique_ptr<llvm::IRBuilder<>> Builder;
-extern std::unique_ptr<llvm::Module> TheModule;
-extern std::map<std::string, llvm::Value*> NamedValues;
+#include "globals.h"
 
 llvm::Value *NumberNode::codegen() {
   return llvm::ConstantFP::get(llvm::Type::getDoubleTy(*TheContext), number);

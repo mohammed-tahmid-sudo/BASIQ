@@ -1,61 +1,88 @@
-// #include <ast.h>
-// #include <codegen.h>
-// #include <iostream>
-// #include <llvm-18/llvm/IR/Constants.h>
-// #include <llvm-18/llvm/IR/IRBuilder.h>
-// #include <llvm-18/llvm/IR/LLVMContext.h>
-// #include <llvm-18/llvm/IR/Type.h>
-// #include <llvm-18/llvm/IR/Value.h>
-// #include <string>
-// #include <unordered_map>
+#include <ast.h>
+#include <llvm-18/llvm/ADT/APFloat.h>
+#include <llvm/IR/Verifier.h>
+#include <llvm-18/llvm/IR/Constants.h>
+#include <llvm-18/llvm/IR/Intrinsics.h>
+#include <llvm-18/llvm/IR/Type.h>
+#include <llvm-18/llvm/IR/Value.h>
 
-// std::unordered_map<std::string, llvm::Value *> NamedValue;
+extern std::unique_ptr<llvm::LLVMContext> TheContext;
+extern std::unique_ptr<llvm::IRBuilder<>> Builder;
+extern std::unique_ptr<llvm::Module> TheModule;
+extern std::map<std::string, llvm::Value*> NamedValues;
 
-// llvm::Value *NumberNode::codegen(llvm::LLVMContext &context,
-//                                  llvm::IRBuilder<> &builder) {
+llvm::Value *NumberNode::codegen() {
+  return llvm::ConstantFP::get(llvm::Type::getDoubleTy(*TheContext), number);
+}
 
-//   llvm::Type *llvmtype = nullptr;
+llvm::Value *VariableNode::codegen() {
+  llvm::Value *v = NamedValues[name];
+  if (!v)
+    LogErrorV("Unknow Variable Name");
+  return v;
+}
 
-//   llvm::Value *Varptr = NamedValue[value];
+llvm::Value *BinaryOperationNode::codegen() {
+  llvm::Value *LHS = left->codegen();
+  llvm::Value *RHS = right->codegen();
 
-//   llvm::Type *llvmtype = nullptr;
+  if (!LHS || !RHS)
+    return nullptr;
+  switch (op) {
 
-//   if (type == "STRING") {
-//     llvmtype = llvm::Type::getInt8PtrTy(context); // pointer to i8 for strings
-//   } else if (type == "INT") {
-//     llvmtype = llvm::Type::getInt32Ty(context);
-//   } else if (type == "FLOAT") {
-//     llvmtype = llvm::Type::getFloatTy(context);
-//   } else {
-//     std::cerr << "Unknown type: " << type << "\n";
-//     return nullptr;
-//   }
+  case '+':
+    return Builder->CreateFAdd(LHS, RHS, "addtmp");
+  case '-':
+    return Builder->CreateFSub(LHS, RHS, "subtmp");
+  case '*':
+    return Builder->CreateFMul(LHS, RHS, "multmp");
+  case '<':
+    LHS = Builder->CreateFCmpULT(LHS, RHS, "cmptmp");
+    // Convert bool 0/1 to double 0.0 or 1.0
+    return Builder->CreateUIToFP(LHS, llvm::Type::getDoubleTy(*TheContext),
+                                 "booltmp");
+  default:
+    return LogErrorV("invalid binary operator");
+  }
+}
 
-//   return builder.CreateLoad(llvmtype, Varptr, "load_", value);
-// }
+llvm::Value *VariableDeclareNode::codegen() { return nullptr; }
+llvm::Value *AssignmentNode::codegen() { return nullptr; }
+llvm::Value *IdentifierNode::codegen() { return nullptr; }
+llvm::Value *StringNode::codegen() { return nullptr; }
+llvm::Value *ReturnNode::codegen() { return nullptr; }
+llvm::Value *BreakNode::codegen() { return nullptr; }
+llvm::Value *ContinueNode::codegen() { return nullptr; }
+llvm::Value *ComparisonNode::codegen() { return nullptr; }
+llvm::Value *IfNode::codegen() { return nullptr; }
+llvm::Value *WhileNode::codegen() { return nullptr; }
+llvm::Value *ForNode::codegen() { return nullptr; }
+llvm::Value *FunctionNode::codegen() { return nullptr; }
+llvm::Value *PrintNode::codegen() { return nullptr; }
 
-// llvm::Value *VariableNode::codegen(llvm::LLVMContext &context,
-//                                    llvm::IRBuilder<> &builder) {
-//   auto it = NamedValue.find(name);
-//   if (it == NamedValue.end()) {
-//     std::cerr << "Unknown variable: " << name << "\n";
-//     return nullptr;
-//   }
+//int main() {
 
-//   llvm::Type *llvmtype = nullptr;
+//    // Initialize global LLVM objects
+//    TheContext = std::make_unique<llvm::LLVMContext>();
+//    TheModule = std::make_unique<llvm::Module>("my_module", *TheContext);
+//    Builder = std::make_unique<llvm::IRBuilder<>>(*TheContext);
 
-//   if (type == "STRING") {
-//     llvmtype = llvm::Type::getInt8Ty(context); // pointer to i8 for strings
-//   } else if (type == "INT") {
-//     llvmtype = llvm::Type::getInt32Ty(context);
-//   } else if (type == "FLOAT") {
-//     llvmtype = llvm::Type::getFloatTy(context);
-//   } else {
-//     std::cerr << "Unknown type: " << type << "\n";
-//     return nullptr;
-//   }
-//   return NamedValue[name];
-// }
+//    // Create function: double main()
+//    auto *FT = llvm::FunctionType::get(llvm::Type::getDoubleTy(*TheContext), false);
+//    auto *F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, "main", TheModule.get());
+//    auto *BB = llvm::BasicBlock::Create(*TheContext, "entry", F);
+//    Builder->SetInsertPoint(BB);
 
-// llvm::Value *VariableDeclareNode::codegen(llvm::LLVMContext &context,
-//                                           llvm::IRBuilder<> &builder) {}
+//    auto code = std::make_unique<BinaryOperationNode>(
+//        std::make_unique<NumberNode>(23), std::make_unique<NumberNode>(33), '+');
+//	//GETTING THE SEGFAULT HERE
+//    llvm::Value *Result = code->codegen();
+//	///////////////////////////////////
+
+//    Builder->CreateRet(Result);
+//    llvm::verifyFunction(*F, &llvm::errs());
+
+//    TheModule->print(llvm::outs(), nullptr);
+//}
+
+

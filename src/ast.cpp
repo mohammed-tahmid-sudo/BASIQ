@@ -34,12 +34,11 @@ std::string AssignmentNode::repr() {
 }
 
 BinaryOperationNode::BinaryOperationNode(std::unique_ptr<ast> l,
-                                         std::unique_ptr<ast> r,
-                                         const std::string &o)
+                                         std::unique_ptr<ast> r, const char o)
     : left(std::move(l)), right(std::move(r)), op(o) {}
 std::string BinaryOperationNode::repr() {
-  return "BinaryOperationNode(op=" + op + ", left=" + left->repr() +
-         ", right=" + right->repr() + ")";
+  return "BinaryOperationNode(op=" + std::string(1, op) +
+         ", left=" + left->repr() + ", right=" + right->repr() + ")";
 }
 
 IdentifierNode::IdentifierNode(const std::string &n) : id(n) {}
@@ -72,7 +71,6 @@ IfNode::IfNode(std::vector<std::unique_ptr<ast>> cond,
     : condition(std::move(cond)), body(std::move(ifBody)),
       elseBody(std::move(elseB)) {}
 
-	
 std::string IfNode::repr() {
   std::string condStr, ifStr, elseStr;
 

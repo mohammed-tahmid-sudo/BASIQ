@@ -1,52 +1,28 @@
-// src/main.cpp
-// #include <lexer.h>
-
-#include "lexer.cpp"
+#include "codegen.h"
 #include <ast.h>
-#include <colors.h>
-#include <iostream>
-#include <ostream>
-#include <parser.h>
+#include <llvm-18/llvm/IR/Verifier.h>
+#include <llvm/Support/raw_ostream.h>
 
 int main() {
-  std::cout << Colors::BOLD << Colors::GREEN << "LEXED VALUE" << Colors::RESET
-            << "\n";
+    TheContext = std::make_unique<llvm::LLVMContext>();
+    TheModule = std::make_unique<llvm::Module>("my_module", *TheContext);
+    Builder = std::make_unique<llvm::IRBuilder<>>(*TheContext);
 
-  Lexer lex;
-  // auto tokens = lex.lexer("VAR x = 5 AS INTEGER; IF x > 3 THEN RETURN x;
-  // END;");
+    auto *FT = llvm::FunctionType::get(llvm::Type::getDoubleTy(*TheContext), false);
+    auto *F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, "main", TheModule.get());
+    auto *BB = llvm::BasicBlock::Create(*TheContext, "entry", F);
+    Builder->SetInsertPoint(BB);
 
-  std::vector<std::vector<std::vector<std::string>>> fullcode;
+    auto code = std::make_unique<BinaryOperationNode>(
+        std::make_unique<NumberNode>(23),
+        std::make_unique<NumberNode>(33),
+        '+'
+    );
 
-  // fullcode.push_back(lex.lexer("VAR a AS INTEGER;"));
-  // fullcode.push_back(lex.lexer("IF (1) THEN 2 END ELIF (3) THEN 34 END ELIF "
-  //                              "(34) THEN 3234234 END ELSE THEN 324234 END
-  //                              "));
-  fullcode.push_back(lex.lexer("IF "));
-  fullcode.push_back(lex.lexer("(1)"));
-  fullcode.push_back(lex.lexer("THEN"));
-  fullcode.push_back(lex.lexer("12323"));
-  fullcode.push_back(lex.lexer("END"));
-  fullcode.push_back(lex.lexer("ELSE"));
-  fullcode.push_back(lex.lexer("THEN"));
-  fullcode.push_back(lex.lexer("234"));
-  fullcode.push_back(lex.lexer("END"));
+    llvm::Value* Result = code->codegen();
+    Builder->CreateRet(Result);
 
-  for (auto &toks : fullcode) {
-    for (auto &tok : toks) {
-      std::cout << tok[0] << " : " << tok[1] << std::endl;
-    }
-  }
-
-  std::cout << Colors::BOLD << Colors::GREEN << "PARSED VALUE" << Colors::RESET
-            << "\n";
-
-  Parser parse;
-
-  std::vector<std::unique_ptr<ast>> parsed_output = parse.Parse(fullcode);
-  for (auto &p : parsed_output) {
-    std::cout << p->repr() << "\n";
-  }
-
-  std::cout << "\n";
+    llvm::verifyFunction(*F, &llvm::errs());
+    TheModule->print(llvm::outs(), nullptr);
 }
+

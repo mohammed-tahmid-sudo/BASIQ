@@ -1,22 +1,39 @@
 #pragma once
-#include "llvm/IR/Value.h"
-#include <memory>
+#include <map>
+#include <memory> // for std::unique_ptr
 #include <string>
-#include <vector>
+#include <iostream>
+
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Value.h"
+
+static std::unique_ptr<llvm::LLVMContext> TheContext;
+static std::unique_ptr<llvm::IRBuilder<>> Builder;
+static std::unique_ptr<llvm::Module> TheModule;
+static std::map<std::string, llvm::Value *> NamedValues;
+
+
+inline llvm::Value *LogErrorV(const char *Str) {
+    std::cerr << "LogError: " << Str << std::endl; // print to console
+    return nullptr;
+}
 
 // -------- Base --------
 
 struct ast {
+  virtual ~ast() = default;
+
   virtual std::string repr() = 0;
   virtual llvm::Value *codegen() = 0;
-  virtual ~ast() = default;
 };
 
 // -------- Expression / Value --------
 
 class NumberNode : public ast {
 public:
-  int number;
+  double number;
   explicit NumberNode(int n);
   std::string repr() override;
   llvm::Value *codegen() override;
@@ -60,10 +77,10 @@ class BinaryOperationNode : public ast {
 public:
   std::unique_ptr<ast> left;
   std::unique_ptr<ast> right;
-  std::string op;
+  char op;
 
   BinaryOperationNode(std::unique_ptr<ast> l, std::unique_ptr<ast> r,
-                      const std::string &o);
+                      const char o);
   std::string repr() override;
   llvm::Value *codegen() override;
 };

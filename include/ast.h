@@ -1,19 +1,14 @@
 #pragma once
+#include "llvm/IR/Value.h"
+#include <iostream>
 #include <map>
 #include <memory> // for std::unique_ptr
 #include <string>
-#include <iostream>
-#include <globals.h>
-
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Value.h"
-
+#include <vector>
 
 inline llvm::Value *LogErrorV(const char *Str) {
-    std::cerr << "LogError: " << Str << std::endl; // print to console
-    return nullptr;
+  std::cerr << "LogError: " << Str << std::endl; // print to console
+  return nullptr;
 }
 
 // -------- Base --------
@@ -45,12 +40,11 @@ public:
 
 class VariableDeclareNode : public ast {
 public:
-  std::unique_ptr<VariableNode> name;
+  std::string name;
   std::string type;
-  std::vector<std::unique_ptr<ast>> contents;
+  std::unique_ptr<ast> contents;
 
-  VariableDeclareNode(std::unique_ptr<VariableNode> n, std::string tp,
-                      std::vector<std::unique_ptr<ast>> cntnts);
+  VariableDeclareNode(std::string n, std::string tp, std::unique_ptr<ast>cntnt);
 
   std::string repr() override;
   llvm::Value *codegen() override;
@@ -59,11 +53,11 @@ public:
 class AssignmentNode : public ast {
 public:
   std::unique_ptr<VariableNode> name;
-  std::vector<std::unique_ptr<ast>> value;
+  std::unique_ptr<ast> value;
   std::string type;
 
   AssignmentNode(std::unique_ptr<VariableNode> n,
-                 std::vector<std::unique_ptr<ast>> v,
+                 std::unique_ptr<ast> v,
                  const std::string &t = "");
   std::string repr() override;
   llvm::Value *codegen() override;

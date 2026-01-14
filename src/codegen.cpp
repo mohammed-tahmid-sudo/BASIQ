@@ -1,11 +1,18 @@
+#include <alloca.h>
 #include <ast.h>
+#include <codegen.h>
+#include <iostream>
 #include <llvm-18/llvm/ADT/APFloat.h>
-#include <llvm/IR/Verifier.h>
 #include <llvm-18/llvm/IR/Constants.h>
+#include <llvm-18/llvm/IR/Function.h>
+#include <llvm-18/llvm/IR/IRBuilder.h>
+#include <llvm-18/llvm/IR/Instructions.h>
 #include <llvm-18/llvm/IR/Intrinsics.h>
 #include <llvm-18/llvm/IR/Type.h>
 #include <llvm-18/llvm/IR/Value.h>
-#include "globals.h"
+#include <llvm-18/llvm/Support/Format.h>
+#include <llvm/IR/Verifier.h>
+#include <memory>
 
 llvm::Value *NumberNode::codegen() {
   return llvm::ConstantFP::get(llvm::Type::getDoubleTy(*TheContext), number);
@@ -42,8 +49,51 @@ llvm::Value *BinaryOperationNode::codegen() {
   }
 }
 
-llvm::Value *VariableDeclareNode::codegen() { return nullptr; }
-llvm::Value *AssignmentNode::codegen() { return nullptr; }
+llvm::Value *VariableDeclareNode::codegen() {
+  llvm::Type *Type = nullptr;
+
+  if (type == "STRING") {
+    Type = llvm::Type::getInt8Ty(*TheContext);
+  } else if (type == "INTEGER") {
+    Type = llvm::Type::getInt32Ty(*TheContext);
+  } else if (type == "FLOAT") {
+    Type = llvm::Type::getFloatTy(*TheContext);
+  } else {
+    LogErrorV("INVALID VARIABLE DELACRATION TYPE");
+  }
+
+  llvm::Function *func = Builder->GetInsertBlock()->getParent();
+  llvm::IRBuilder<> tmpbuilder(&func->getEntryBlock(),
+                               func->getEntryBlock().begin());
+  llvm::AllocaInst *alloca = tmpbuilder.CreateAlloca(Type, nullptr, name);
+
+  // Initialize if there is an initializer
+  if (contents) {
+    llvm::Value *initVal = contents->codegen();
+    if (!initVal)
+      return nullptr;
+    Builder->CreateStore(initVal, alloca);
+  }
+
+  NamedValues[name] = alloca;
+  return alloca;
+}
+
+llvm::Value *AssignmentNode::codegen() {
+  llvm::Value *var = NamedValues[name->name];
+  if (!var) {
+    std::cerr << "Unknown variable name: " << name->name << std::endl;
+    return nullptr;
+  }
+
+  llvm::Value *val = value->codegen();
+  if (!val)
+    return nullptr;
+
+  Builder->CreateStore(val, var);
+  return val;
+}
+
 llvm::Value *IdentifierNode::codegen() { return nullptr; }
 llvm::Value *StringNode::codegen() { return nullptr; }
 llvm::Value *ReturnNode::codegen() { return nullptr; }
@@ -56,29 +106,27 @@ llvm::Value *ForNode::codegen() { return nullptr; }
 llvm::Value *FunctionNode::codegen() { return nullptr; }
 llvm::Value *PrintNode::codegen() { return nullptr; }
 
-//int main() {
+int main() {
+  TheContext = std::make_unique<llvm::LLVMContext>();
+  TheModule = std::make_unique<llvm::Module>("my_module", *TheContext);
+  Builder = std::make_unique<llvm::IRBuilder<>>(*TheContext);
 
-//    // Initialize global LLVM objects
-//    TheContext = std::make_unique<llvm::LLVMContext>();
-//    TheModule = std::make_unique<llvm::Module>("my_module", *TheContext);
-//    Builder = std::make_unique<llvm::IRBuilder<>>(*TheContext);
+  auto *FT =
+      llvm::FunctionType::get(llvm::Type::getDoubleTy(*TheContext), false);
+  auto *F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, "main",
+                                   TheModule.get());
+  auto *BB = llvm::BasicBlock::Create(*TheContext, "entry", F);
+  Builder->SetInsertPoint(BB);
 
-//    // Create function: double main()
-//    auto *FT = llvm::FunctionType::get(llvm::Type::getDoubleTy(*TheContext), false);
-//    auto *F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, "main", TheModule.get());
-//    auto *BB = llvm::BasicBlock::Create(*TheContext, "entry", F);
-//    Builder->SetInsertPoint(BB);
+  auto code = std::make_unique<VariableDeclareNode>(
+      "hello", "INTEGER",
+      std::make_unique<BinaryOperationNode>(std::make_unique<NumberNode>(23),
+                                            std::make_unique<NumberNode>(33),
+                                            '+'));
 
-//    auto code = std::make_unique<BinaryOperationNode>(
-//        std::make_unique<NumberNode>(23), std::make_unique<NumberNode>(33), '+');
-//	//GETTING THE SEGFAULT HERE
-//    llvm::Value *Result = code->codegen();
-//	///////////////////////////////////
+  llvm::Value *Result = code->codegen();
+  Builder->CreateRet(Result);
 
-//    Builder->CreateRet(Result);
-//    llvm::verifyFunction(*F, &llvm::errs());
-
-//    TheModule->print(llvm::outs(), nullptr);
-//}
-
-
+  llvm::verifyFunction(*F, &llvm::errs());
+  TheModule->print(llvm::outs(), nullptr);
+}

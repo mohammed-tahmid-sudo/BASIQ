@@ -14,8 +14,8 @@ VariableNode::VariableNode(const std::string &n) : name(n) {}
 std::string VariableNode::repr() { return "VariableNode(" + name + ")"; }
 
 // Correct constructor
-VariableDeclareNode::VariableDeclareNode(
-    std::string n, std::string tp, std::unique_ptr<ast> cntnt)
+VariableDeclareNode::VariableDeclareNode(std::string n, std::string tp,
+                                         std::unique_ptr<ast> cntnt)
     : name(n), type(std::move(tp)), contents(std::move(cntnt)) {}
 
 std::string VariableDeclareNode::repr() {
@@ -23,13 +23,11 @@ std::string VariableDeclareNode::repr() {
 }
 
 AssignmentNode::AssignmentNode(std::unique_ptr<VariableNode> n,
-                               std::unique_ptr<ast> v,
-                               const std::string &t)
+                               std::unique_ptr<ast> v, const std::string &t)
     : name(std::move(n)), value(std::move(v)), type(t) {}
 std::string AssignmentNode::repr() {
   std::string s = "AssignmentNode(" + name->repr() + ", value=[";
-  for (auto &v : value)
-    s += v->repr() + ",";
+  s += value->repr() + ",";
   s += "], type=" + type + ")";
   return s;
 }
@@ -58,15 +56,15 @@ std::string ReturnNode::repr() {
 std::string BreakNode::repr() { return "BreakNode"; }
 std::string ContinueNode::repr() { return "ContinueNode"; }
 
-ComparisonNode::ComparisonNode(std::vector<std::unique_ptr<ast>> l,
-                               std::vector<std::unique_ptr<ast>> r,
+ComparisonNode::ComparisonNode(std::unique_ptr<ast> l, std::unique_ptr<ast> r,
                                const std::string &c)
     : left(std::move(l)), right(std::move(r)), comp(c) {}
+
 std::string ComparisonNode::repr() {
   return "ComparisonNode(comp=" + comp + ")";
 }
 
-IfNode::IfNode(std::vector<std::unique_ptr<ast>> cond,
+IfNode::IfNode(std::unique_ptr<ast> cond,
                std::vector<std::unique_ptr<ast>> ifBody,
                std::vector<std::unique_ptr<ast>> elseB)
     : condition(std::move(cond)), body(std::move(ifBody)),
@@ -75,8 +73,7 @@ IfNode::IfNode(std::vector<std::unique_ptr<ast>> cond,
 std::string IfNode::repr() {
   std::string condStr, ifStr, elseStr;
 
-  for (auto &c : condition)
-    condStr += c->repr() + ", ";
+  condStr += condition->repr() + ", ";
   for (auto &b : body)
     ifStr += b->repr() + ", ";
   for (auto &e : elseBody)

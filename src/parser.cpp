@@ -90,7 +90,7 @@ Parser::Parse(std::vector<std::vector<std::vector<std::string>>> input,
     auto args_parsed = Parse({args});
     auto block_parsed = Parse({block});
 
-    auto ifNode = std::make_unique<IfNode>(std::move(args_parsed),
+    auto ifNode = std::make_unique<IfNode>(std::move(args_parsed[0]),
                                            std::move(block_parsed));
 
     IfNode *currentIf = ifNode.get();
@@ -101,7 +101,7 @@ Parser::Parse(std::vector<std::vector<std::vector<std::string>>> input,
       auto Elif_block_parsed = Parse({Elif_block});
 
       // Create a new IfNode for this elif
-      auto elifNode = std::make_unique<IfNode>(std::move(Elif_args_parsed),
+      auto elifNode = std::make_unique<IfNode>(std::move(Elif_args_parsed[0]),
                                                std::move(Elif_block_parsed));
 
       // Append it to the elseBody of the current if/elif
@@ -145,5 +145,3 @@ Parser::Parse(std::vector<std::vector<std::vector<std::string>>> input,
   }
   return output;
 };
-
-

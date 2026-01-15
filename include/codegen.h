@@ -1,6 +1,6 @@
 #pragma once
-#include <llvm-18/llvm/IR/IRBuilder.h>
 #include <ast.h>
+#include <llvm-18/llvm/IR/IRBuilder.h>
 #include <llvm-18/llvm/IR/LLVMContext.h>
 #include <llvm-18/llvm/IR/Module.h>
 #include <llvm/IR/IRBuilder.h>
@@ -18,4 +18,11 @@ static std::unique_ptr<llvm::IRBuilder<>> Builder;
 static std::unique_ptr<llvm::Module> TheModule;
 static std::map<std::string, llvm::Value *> NamedValues;
 
+// actual definition and memory allocation
+llvm::BasicBlock* CurrentLoopStart = nullptr;
+llvm::BasicBlock* CurrentLoopEnd = nullptr;
+
+// just declare it, no memory allocated yet
+extern llvm::BasicBlock* CurrentLoopStart;
+extern llvm::BasicBlock* CurrentLoopEnd;
 

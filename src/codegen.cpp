@@ -1,9 +1,11 @@
 #include <alloca.h>
 #include <ast.h>
 #include <codegen.h>
+#include <ios>
 #include <iostream>
 #include <llvm-18/llvm/ADT/APFloat.h>
 #include <llvm-18/llvm/IR/Constants.h>
+#include <llvm-18/llvm/IR/DataLayout.h>
 #include <llvm-18/llvm/IR/Function.h>
 #include <llvm-18/llvm/IR/IRBuilder.h>
 #include <llvm-18/llvm/IR/Instructions.h>
@@ -94,17 +96,157 @@ llvm::Value *AssignmentNode::codegen() {
   return val;
 }
 
-llvm::Value *IdentifierNode::codegen() { return nullptr; }
-llvm::Value *StringNode::codegen() { return nullptr; }
-llvm::Value *ReturnNode::codegen() { return nullptr; }
-llvm::Value *BreakNode::codegen() { return nullptr; }
-llvm::Value *ContinueNode::codegen() { return nullptr; }
-llvm::Value *ComparisonNode::codegen() { return nullptr; }
-llvm::Value *IfNode::codegen() { return nullptr; }
-llvm::Value *WhileNode::codegen() { return nullptr; }
-llvm::Value *ForNode::codegen() { return nullptr; }
-llvm::Value *FunctionNode::codegen() { return nullptr; }
-llvm::Value *PrintNode::codegen() { return nullptr; }
+// llvm::Value *IdentifierNode::codegen() {} DON"T NEED IT. I THINK...
+
+llvm::Value *StringNode::codegen() {
+  return Builder->CreateGlobalStringPtr(value);
+}
+
+llvm::Value *ReturnNode::codegen() {
+  llvm::Value *V = expr ? expr->codegen() : nullptr;
+  return Builder->CreateRet(V);
+}
+
+llvm::Value *BreakNode::codegen() { return Builder->CreateBr(CurrentLoopEnd); }
+
+llvm::Value *ContinueNode::codegen() {
+  return Builder->CreateBr(CurrentLoopStart);
+}
+
+llvm::Value *ComparisonNode::codegen() {
+
+  llvm::Value *L = left->codegen();
+  llvm::Value *R = right->codegen();
+
+  if (!L || !R) {
+    return nullptr;
+  }
+
+  llvm::Type *Type = nullptr;
+
+  if (comp == "==")
+    return Builder->CreateICmpEQ(L, R, "cmptmp");
+  else if (comp == "!=")
+    return Builder->CreateICmpNE(L, R, "cmptmp");
+  else if (comp == "<")
+    return Builder->CreateICmpSLT(L, R, "cmptmp");
+  else if (comp == "<=")
+    return Builder->CreateICmpSLE(L, R, "cmptmp");
+  else if (comp == ">")
+    return Builder->CreateICmpSGT(L, R, "cmptmp");
+  else if (comp == ">=")
+    return Builder->CreateICmpSGE(L, R, "cmptmp");
+
+  return LogErrorV("Unknown comparison operator");
+}
+
+llvm::Value *IfNode::codegen() {
+  llvm::Value *CondV = condition->codegen();
+  if (!CondV)
+    return nullptr;
+
+  CondV = Builder->CreateICmpNE(
+      CondV, llvm::ConstantInt::get(CondV->getType(), 0), "ifcond");
+
+  llvm::Function *TheFunction = Builder->GetInsertBlock()->getParent();
+
+  llvm::BasicBlock *ThenBB =
+      llvm::BasicBlock::Create(*TheContext, "then", TheFunction);
+  llvm::BasicBlock *MergeBB =
+      llvm::BasicBlock::Create(*TheContext, "ifcont", TheFunction);
+  llvm::BasicBlock *ElseBB =
+      !elseBody.empty()
+          ? llvm::BasicBlock::Create(*TheContext, "else", TheFunction)
+          : nullptr;
+
+  if (ElseBB)
+    Builder->CreateCondBr(CondV, ThenBB, ElseBB);
+  else
+    Builder->CreateCondBr(CondV, ThenBB, MergeBB);
+
+  Builder->SetInsertPoint(ThenBB);
+  for (auto &stmt : body)
+    stmt->codegen();
+  Builder->CreateBr(MergeBB);
+
+  if (ElseBB) {
+    Builder->SetInsertPoint(ElseBB);
+    for (auto &stmt : elseBody)
+      stmt->codegen();
+    Builder->CreateBr(MergeBB);
+  }
+
+  Builder->SetInsertPoint(MergeBB);
+  return nullptr;
+}
+
+llvm::Value *WhileNode::codegen() {
+  llvm::Function *TheFunction = Builder->GetInsertBlock()->getParent();
+
+  llvm::BasicBlock *CondBB =
+      llvm::BasicBlock::Create(*TheContext, "whilecond", TheFunction);
+  llvm::BasicBlock *LoopBB =
+      llvm::BasicBlock::Create(*TheContext, "loop", TheFunction);
+  llvm::BasicBlock *AfterBB =
+      llvm::BasicBlock::Create(*TheContext, "afterloop", TheFunction);
+
+  // branch to condition first
+  Builder->CreateBr(CondBB);
+
+  // condition block
+  Builder->SetInsertPoint(CondBB);
+  llvm::Value *CondV = condition->codegen();
+  if (!CondV)
+    return nullptr;
+  CondV = Builder->CreateICmpNE(
+      CondV, llvm::ConstantInt::get(CondV->getType(), 0), "whilecond");
+
+  Builder->CreateCondBr(CondV, LoopBB, AfterBB);
+
+  // loop block
+  Builder->SetInsertPoint(LoopBB);
+  llvm::BasicBlock *PrevLoopStart = CurrentLoopStart;
+  llvm::BasicBlock *PrevLoopEnd = CurrentLoopEnd;
+  CurrentLoopStart = CondBB;
+  CurrentLoopEnd = AfterBB;
+
+  for (auto &stmt : body)
+    stmt->codegen();
+
+  Builder->CreateBr(CondBB); // back to condition
+
+  // restore previous loop context
+  CurrentLoopStart = PrevLoopStart;
+  CurrentLoopEnd = PrevLoopEnd;
+
+  // after loop
+  Builder->SetInsertPoint(AfterBB);
+
+  return nullptr;
+}
+
+// llvm::Value *ForNode::codegen() {} GONNA IMPLEMENT IT LATER
+// llvm::Value *FunctionNode::codegen() { return nullptr; } THIS TOO
+llvm::Value *PrintNode::codegen() {
+  llvm::Value *Val = args->codegen();
+  if (!Val)
+    return nullptr;
+
+  // declare printf if not already
+  llvm::Function *PrintF = TheModule->getFunction("printf");
+  if (!PrintF) {
+    std::vector<llvm::Type *> printfArgs;
+    printfArgs.push_back(Builder->getInt8Ty());
+    llvm::FunctionType *printfType =
+        llvm::FunctionType::get(Builder->getInt32Ty(), printfArgs, true);
+    PrintF = llvm::Function::Create(printfType, llvm::Function::ExternalLinkage,
+                                    "printf", TheModule.get());
+  }
+
+  // create format string for int
+  llvm::Value *formatStr = Builder->CreateGlobalStringPtr("%d\n");
+  return Builder->CreateCall(PrintF, {formatStr, Val}, "printfCall");
+}
 
 int main() {
   TheContext = std::make_unique<llvm::LLVMContext>();

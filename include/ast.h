@@ -44,7 +44,8 @@ public:
   std::string type;
   std::unique_ptr<ast> contents;
 
-  VariableDeclareNode(std::string n, std::string tp, std::unique_ptr<ast>cntnt);
+  VariableDeclareNode(std::string n, std::string tp,
+                      std::unique_ptr<ast> cntnt);
 
   std::string repr() override;
   llvm::Value *codegen() override;
@@ -56,8 +57,7 @@ public:
   std::unique_ptr<ast> value;
   std::string type;
 
-  AssignmentNode(std::unique_ptr<VariableNode> n,
-                 std::unique_ptr<ast> v,
+  AssignmentNode(std::unique_ptr<VariableNode> n, std::unique_ptr<ast> v,
                  const std::string &t = "");
   std::string repr() override;
   llvm::Value *codegen() override;
@@ -115,24 +115,23 @@ public:
 
 class ComparisonNode : public ast {
 public:
-  std::vector<std::unique_ptr<ast>> left;
-  std::vector<std::unique_ptr<ast>> right;
+  std::unique_ptr<ast> left;
+  std::unique_ptr<ast> right;
   std::string comp;
 
-  ComparisonNode(std::vector<std::unique_ptr<ast>> l,
-                 std::vector<std::unique_ptr<ast>> r, const std::string &c);
+  ComparisonNode(std::unique_ptr<ast> l, std::unique_ptr<ast> r,
+                 const std::string &c);
   std::string repr() override;
   llvm::Value *codegen() override;
 };
 
 class IfNode : public ast {
 public:
-  std::vector<std::unique_ptr<ast>> condition;
+  std::unique_ptr<ast> condition;
   std::vector<std::unique_ptr<ast>> body;
   std::vector<std::unique_ptr<ast>> elseBody;
 
-  IfNode(std::vector<std::unique_ptr<ast>> cond,
-         std::vector<std::unique_ptr<ast>> ifBody,
+  IfNode(std::unique_ptr<ast> cond, std::vector<std::unique_ptr<ast>> ifBody,
          std::vector<std::unique_ptr<ast>> elseBody = {});
   std::string repr() override;
   llvm::Value *codegen() override;

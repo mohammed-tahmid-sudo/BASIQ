@@ -13,7 +13,10 @@
 #include <llvm-18/llvm/IR/Type.h>
 #include <llvm-18/llvm/IR/Value.h>
 #include <llvm-18/llvm/Support/Format.h>
+#include <llvm/ExecutionEngine/Orc/LLJIT.h>
+#include <llvm/ExecutionEngine/Orc/ThreadSafeModule.h>
 #include <llvm/IR/Verifier.h>
+#include <llvm/Support/TargetSelect.h> // This contains InitializeNativeTarget* functions
 #include <memory>
 
 llvm::Value *NumberNode::codegen() {
@@ -96,7 +99,9 @@ llvm::Value *AssignmentNode::codegen() {
   return val;
 }
 
-// llvm::Value *IdentifierNode::codegen() {} DON"T NEED IT. I THINK...
+llvm::Value *IdentifierNode::codegen() {
+  return nullptr;
+} // DON"T NEED IT. I THINK...
 
 llvm::Value *StringNode::codegen() {
   return Builder->CreateGlobalStringPtr(value);
@@ -225,8 +230,11 @@ llvm::Value *WhileNode::codegen() {
   return nullptr;
 }
 
-// llvm::Value *ForNode::codegen() {} GONNA IMPLEMENT IT LATER
-// llvm::Value *FunctionNode::codegen() { return nullptr; } THIS TOO
+llvm::Value *ForNode::codegen() { return nullptr; } // GONNA IMPLEMENT IT LATER
+llvm::Value *FunctionNode::codegen() {
+  return nullptr;
+} // THIS TOO
+  //
 llvm::Value *PrintNode::codegen() {
   llvm::Value *Val = args->codegen();
   if (!Val)
@@ -244,15 +252,21 @@ llvm::Value *PrintNode::codegen() {
   }
 
   // create format string for int
-  llvm::Value *formatStr = Builder->CreateGlobalStringPtr("%d\n");
+  llvm::Value *formatStr = Builder->CreateGlobalStringPtr("%f\n");
   return Builder->CreateCall(PrintF, {formatStr, Val}, "printfCall");
 }
 
 int main() {
+  // Initialize LLVM targets for JIT
+  llvm::InitializeNativeTarget();
+  llvm::InitializeNativeTargetAsmPrinter();
+  llvm::InitializeNativeTargetAsmParser();
+
   TheContext = std::make_unique<llvm::LLVMContext>();
   TheModule = std::make_unique<llvm::Module>("my_module", *TheContext);
   Builder = std::make_unique<llvm::IRBuilder<>>(*TheContext);
 
+  // Create a simple main function in IR
   auto *FT =
       llvm::FunctionType::get(llvm::Type::getDoubleTy(*TheContext), false);
   auto *F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, "main",
@@ -260,15 +274,45 @@ int main() {
   auto *BB = llvm::BasicBlock::Create(*TheContext, "entry", F);
   Builder->SetInsertPoint(BB);
 
-  auto code = std::make_unique<VariableDeclareNode>(
-      "hello", "INTEGER",
-      std::make_unique<BinaryOperationNode>(std::make_unique<NumberNode>(23),
-                                            std::make_unique<NumberNode>(33),
-                                            '+'));
-
+  // Example: print 5
+  auto code = std::make_unique<NumberNode>(5);
   llvm::Value *Result = code->codegen();
   Builder->CreateRet(Result);
 
-  llvm::verifyFunction(*F, &llvm::errs());
-  TheModule->print(llvm::outs(), nullptr);
+  // Verify function
+  if (llvm::verifyFunction(*F, &llvm::errs())) {
+    llvm::errs() << "Function verification failed!\n";
+    return 1;
+  }
+
+  // Create JIT
+  auto JIT = llvm::orc::LLJITBuilder().create();
+  if (!JIT) {
+    llvm::errs() << "Failed to create LLJIT\n";
+    return 1;
+  }
+
+  // Add module to JIT
+  llvm::orc::ThreadSafeModule TSM(std::move(TheModule), std::move(TheContext));
+  if (auto err = (*JIT)->addIRModule(std::move(TSM))) {
+    llvm::errs() << "Failed to add module to JIT\n";
+    return 1;
+  }
+
+  // Lookup main symbol
+  auto MainSym = (*JIT)->lookup("main");
+  if (!MainSym) {
+    llvm::errs() << "Failed to find main in JIT\n";
+    return 1;
+  }
+
+  // LLVM 18: cast JITTargetAddress to function pointer directly
+  auto MainAddr = MainSym->getValue();
+  double (*MainF)() = (double (*)())MainAddr;
+
+  // Call the JITed function
+  double res = MainF();
+  std::cout << "Result: " << res << "\n";
+
+  return 0;
 }

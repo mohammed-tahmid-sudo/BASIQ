@@ -1,6 +1,7 @@
 // lexer.cpp
 #include <cctype>
 #include <lexer.h>
+#include <string>
 
 std::string tokenTypeToString(TokenType type) {
   switch (type) {
@@ -218,8 +219,10 @@ Lexer::lexerSplitStatements(const std::string &input) {
       break;
 
     if (tok.Type == TokenType::SEMICOLON) {
-      if (!current.empty())
+      if (!current.empty()) {
+        current.push_back(Token(TokenType::EOF_TOKEN, std::string("EOF")));
         statements.push_back(current);
+      }
       current.clear();
     } else {
       current.push_back(tok);

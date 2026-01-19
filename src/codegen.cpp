@@ -256,63 +256,64 @@ llvm::Value *PrintNode::codegen() {
   return Builder->CreateCall(PrintF, {formatStr, Val}, "printfCall");
 }
 
-int main() {
-  // Initialize LLVM targets for JIT
-  llvm::InitializeNativeTarget();
-  llvm::InitializeNativeTargetAsmPrinter();
-  llvm::InitializeNativeTargetAsmParser();
+// int main() {
+//   // Initialize LLVM targets for JIT
+//   llvm::InitializeNativeTarget();
+//   llvm::InitializeNativeTargetAsmPrinter();
+//   llvm::InitializeNativeTargetAsmParser();
 
-  TheContext = std::make_unique<llvm::LLVMContext>();
-  TheModule = std::make_unique<llvm::Module>("my_module", *TheContext);
-  Builder = std::make_unique<llvm::IRBuilder<>>(*TheContext);
+//   TheContext = std::make_unique<llvm::LLVMContext>();
+//   TheModule = std::make_unique<llvm::Module>("my_module", *TheContext);
+//   Builder = std::make_unique<llvm::IRBuilder<>>(*TheContext);
 
-  // Create a simple main function in IR
-  auto *FT =
-      llvm::FunctionType::get(llvm::Type::getDoubleTy(*TheContext), false);
-  auto *F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, "main",
-                                   TheModule.get());
-  auto *BB = llvm::BasicBlock::Create(*TheContext, "entry", F);
-  Builder->SetInsertPoint(BB);
+//   // Create a simple main function in IR
+//   auto *FT =
+//       llvm::FunctionType::get(llvm::Type::getDoubleTy(*TheContext), false);
+//   auto *F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, "main",
+//                                    TheModule.get());
+//   auto *BB = llvm::BasicBlock::Create(*TheContext, "entry", F);
+//   Builder->SetInsertPoint(BB);
 
-  // Example: print 5
-  auto code = std::make_unique<NumberNode>(5);
-  llvm::Value *Result = code->codegen();
-  Builder->CreateRet(Result);
+//   // Example: print 5
+//   auto code = std::make_unique<BinaryOperationNode>(
+//       std::make_unique<NumberNode>(5), std::make_unique<NumberNode>(5), '+');
+//   llvm::Value *Result = code->codegen();
+//   Builder->CreateRet(Result);
 
-  // Verify function
-  if (llvm::verifyFunction(*F, &llvm::errs())) {
-    llvm::errs() << "Function verification failed!\n";
-    return 1;
-  }
+//   // Verify function
+//   if (llvm::verifyFunction(*F, &llvm::errs())) {
+//     llvm::errs() << "Function verification failed!\n";
+//     return 1;
+//   }
 
-  // Create JIT
-  auto JIT = llvm::orc::LLJITBuilder().create();
-  if (!JIT) {
-    llvm::errs() << "Failed to create LLJIT\n";
-    return 1;
-  }
+//   // Create JIT
+//   auto JIT = llvm::orc::LLJITBuilder().create();
+//   if (!JIT) {
+//     llvm::errs() << "Failed to create LLJIT\n";
+//     return 1;
+//   }
 
-  // Add module to JIT
-  llvm::orc::ThreadSafeModule TSM(std::move(TheModule), std::move(TheContext));
-  if (auto err = (*JIT)->addIRModule(std::move(TSM))) {
-    llvm::errs() << "Failed to add module to JIT\n";
-    return 1;
-  }
+//   // Add module to JIT
+//   llvm::orc::ThreadSafeModule TSM(std::move(TheModule), std::move(TheContext));
+//   if (auto err = (*JIT)->addIRModule(std::move(TSM))) {
+//     llvm::errs() << "Failed to add module to JIT\n";
+//     return 1;
+//   }
 
-  // Lookup main symbol
-  auto MainSym = (*JIT)->lookup("main");
-  if (!MainSym) {
-    llvm::errs() << "Failed to find main in JIT\n";
-    return 1;
-  }
+//   // Lookup main symbol
+//   auto MainSym = (*JIT)->lookup("main");
+//   if (!MainSym) {
+//     llvm::errs() << "Failed to find main in JIT\n";
+//     return 1;
+//   }
 
-  // LLVM 18: cast JITTargetAddress to function pointer directly
-  auto MainAddr = MainSym->getValue();
-  double (*MainF)() = (double (*)())MainAddr;
+//   // LLVM 18: cast JITTargetAddress to function pointer directly
+//   auto MainAddr = MainSym->getValue();
+//   double (*MainF)() = (double (*)())MainAddr;
 
-  // Call the JITed function
-  double res = MainF();
-  std::cout << "Result: " << res << "\n";
+//   // Call the JITed function
+//   double res = MainF();
+//   std::cout << "Result: " << res << "\n";
 
-  return 0;
-}
+//   return 0;
+// }

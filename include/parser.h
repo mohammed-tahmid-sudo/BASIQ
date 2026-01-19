@@ -1,7 +1,6 @@
 // parser.h
 #pragma once
 #include <ast.h>
-#include <cstddef>
 #include <memory>
 #include <string>
 #include <vector>

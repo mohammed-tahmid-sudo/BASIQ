@@ -15,14 +15,14 @@ std::string tokenTypeToString(TokenType type) {
     return "THEN";
   case TokenType::ELSE:
     return "ELSE";
-  case TokenType::END_IF:
-    return "END_IF";
+  case TokenType::ELIF:
+    return "ELIF";
   case TokenType::WHILE:
     return "WHILE";
   case TokenType::DO:
     return "DO";
-  case TokenType::END_WHILE:
-    return "END_WHILE";
+  case TokenType::END:
+    return "END";
   case TokenType::RETURN:
     return "RETURN";
   case TokenType::PRINT:
@@ -37,8 +37,6 @@ std::string tokenTypeToString(TokenType type) {
     return "FLOAT_TYPE";
   case TokenType::BOOLEAN_TYPE:
     return "BOOLEAN_TYPE";
-  case TokenType::CHAR_TYPE:
-    return "CHAR_TYPE";
   case TokenType::STRING_TYPE:
     return "STRING_TYPE";
   case TokenType::PLUS:
@@ -103,6 +101,8 @@ bool Lexer::isKeyword(const std::string &s, TokenType &type) {
     type = TokenType::THEN;
   else if (s == "ELSE")
     type = TokenType::ELSE;
+  else if (s == "ELIF")
+    type = TokenType::ELIF;
   else if (s == "WHILE")
     type = TokenType::WHILE;
   else if (s == "DO")
@@ -125,6 +125,8 @@ bool Lexer::isKeyword(const std::string &s, TokenType &type) {
     type = TokenType::CHAR_TYPE;
   else if (s == "STRING")
     type = TokenType::STRING_TYPE;
+  else if (s == "END")
+    type = TokenType::END;
   else
     return false;
   return true;

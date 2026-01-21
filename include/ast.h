@@ -1,7 +1,6 @@
 #pragma once
-#include "llvm/IR/Value.h"
+#include <llvm-18/llvm/IR/Value.h>
 #include <iostream>
-#include <map>
 #include <memory> // for std::unique_ptr
 #include <string>
 #include <vector>
@@ -25,7 +24,7 @@ struct ast {
 class NumberNode : public ast {
 public:
   double number;
-  explicit NumberNode(int n);
+  explicit NumberNode(double n);
   std::string repr() override;
   llvm::Value *codegen() override;
 };
@@ -178,4 +177,4 @@ public:
   explicit PrintNode(std::unique_ptr<ast> arg);
   std::string repr() override;
   llvm::Value *codegen() override;
-};
+ };

@@ -5,7 +5,7 @@
 
 // -------- Expression / Value --------
 
-NumberNode::NumberNode(int n) : number(n) {}
+NumberNode::NumberNode(double n) : number(n) {}
 std::string NumberNode::repr() {
   return "NumberNode(" + std::to_string(number) + ")";
 }

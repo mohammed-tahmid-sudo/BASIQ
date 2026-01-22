@@ -20,15 +20,15 @@ assignment      ::= identifier "=" expr
 
 expr_stmt       ::= expr
 
-if_stmt         ::= "IF" expr "THEN" { statement } [ "ELSE" { statement } ] "END IF"
+if_stmt         ::= "IF" ( expr ) "THEN" { statement } [ "ELSE" { statement } ] "END"
 
-while_stmt      ::= "WHILE" expr "DO" { statement } "END WHILE"
+while_stmt      ::= "WHILE" ( expr ) "DO" { statement } "END"
 
 return_stmt     ::= "RETURN" expr
 
 print_stmt      ::= "PRINT" "(" expr { "," expr } ")"
 
-expr            ::= expr "+" term
+Expr            ::= expr "+" term
                   | expr "-" term
                   | term
 

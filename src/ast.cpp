@@ -19,7 +19,8 @@ VariableDeclareNode::VariableDeclareNode(std::string n, std::string tp,
     : name(n), type(std::move(tp)), contents(std::move(cntnt)) {}
 
 std::string VariableDeclareNode::repr() {
-  return "VariableDeclareNode(" + name + ", type=" + type + ")";
+  return "VariableDeclareNode(" + name + ", type=" + type +
+         ", value=" + (contents ? contents->repr() : "null") + ")";
 }
 
 AssignmentNode::AssignmentNode(std::unique_ptr<VariableNode> n,
@@ -94,7 +95,17 @@ std::string IfNode::repr() {
 WhileNode::WhileNode(std::unique_ptr<ast> cond,
                      std::vector<std::unique_ptr<ast>> b)
     : condition(std::move(cond)), body(std::move(b)) {}
-std::string WhileNode::repr() { return "WhileNode"; }
+
+std::string WhileNode::repr() {
+  std::string out = "WhileNode(cond=" + condition->repr() + ", body=[";
+  for (size_t i = 0; i < body.size(); ++i) {
+    out += body[i]->repr();
+    if (i + 1 < body.size())
+      out += ", ";
+  }
+  out += "])";
+  return out;
+}
 
 ForNode::ForNode(std::unique_ptr<ast> i, std::unique_ptr<ast> cond,
                  std::unique_ptr<ast> inc, std::vector<std::unique_ptr<ast>> b)

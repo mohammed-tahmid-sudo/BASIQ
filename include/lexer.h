@@ -24,6 +24,7 @@ enum class TokenType {
   BOOLEAN_TYPE,
   CHAR_TYPE,
   STRING_TYPE,
+  TYPE,
 
   // Operators
   PLUS,

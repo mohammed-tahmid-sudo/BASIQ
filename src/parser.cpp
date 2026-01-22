@@ -91,10 +91,24 @@ std::unique_ptr<ast> Parser::ParseTerm() {
   std::array<TokenType, 2> tokens = {TokenType::STAR, TokenType::SLASH};
   return parseFuncExprFactor([this]() { return ParseFactor(); }, tokens);
 }
-std::unique_ptr<ast> Parser::ParseExpressions() {
+std::unique_ptr<ast> Parser::ParseBinOP() {
 
   std::array<TokenType, 2> tokens = {TokenType::PLUS, TokenType::MINUS};
   return parseFuncExprFactor([this]() { return ParseTerm(); }, tokens);
+}
+
+std::unique_ptr<ast> Parser::ParseComparison() { return nullptr; }
+
+std::unique_ptr<ast> Parser::ParseExpressions() {
+
+  auto saveX = x, saveY = y;
+
+  if (auto node = ParseComparison())
+    return node;
+
+  x = saveX;
+  y = saveY;
+  return ParseBinOP();
 }
 
 std::unique_ptr<IfNode> Parser::ParseIfElseStatement() {
@@ -136,11 +150,50 @@ std::unique_ptr<IfNode> Parser::ParseIfElseStatement() {
   return output;
 }
 
+std::unique_ptr<WhileNode> Parser::ParseWhileStatement() {
+  Expect(TokenType::LPAREN);
+  std::unique_ptr<ast> args = ParseExpressions();
+  Expect(TokenType::RPAREN);
+  Expect(TokenType::DO);
+  std::vector<std::unique_ptr<ast>> block = Parser::Parse();
+  Expect(TokenType::END);
+
+  return std::make_unique<WhileNode>(std::move(args), std::move(block));
+}
+
+std::unique_ptr<VariableDeclareNode> Parser::ParseVariableStatement() {
+
+  std::unique_ptr<ast> args = nullptr;
+  std::string name = Peek(true);
+  std::string type;
+  Expect(TokenType::IDENTIFIER);
+  if (Peek() == tokenTypeToString(TokenType::EQUAL)) {
+    Consume();
+    args = ParseExpressions();
+    Expect(TokenType::AS);
+    type = Peek(true);
+    Expect(TokenType::TYPE);
+
+  } else if (Peek() == tokenTypeToString(TokenType::AS)) {
+    Consume();
+    type = Peek(true);
+    Expect(TokenType::TYPE);
+  }
+
+  return std::make_unique<VariableDeclareNode>(name, type, std::move(args));
+}
+
 std::unique_ptr<ast> Parser::ParseStatements() {
   std::unique_ptr<ast> output;
 
   if (Peek() == tokenTypeToString(TokenType::IF)) {
     output = ParseIfElseStatement();
+  } else if (Peek() == tokenTypeToString(TokenType::WHILE)) {
+    Consume();
+    output = ParseWhileStatement();
+  } else if (Peek() == tokenTypeToString(TokenType::VAR)) {
+    Consume();
+    output = ParseVariableStatement();
   }
 
   return output;
@@ -164,8 +217,8 @@ std::vector<std::unique_ptr<ast>> Parser::Parse() {
 
 int main() {
   Lexer lex;
-  std::vector<std::vector<Token>> statements = lex.lexerSplitStatements(
-      "IF (1) THEN 1  + 1 END ELIF (2) THEN 1 - 1 END ");
+  std::vector<std::vector<Token>> statements =
+      lex.lexerSplitStatements("VAR a = 4 + 334/  AS INTEGER");
 
   for (size_t idx = 0; idx < statements.size(); ++idx) {
     for (const auto &tok : statements[idx]) {

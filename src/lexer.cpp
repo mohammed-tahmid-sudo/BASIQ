@@ -69,6 +69,8 @@ std::string tokenTypeToString(TokenType type) {
     return "BOOLEAN_LITERAL";
   case TokenType::IDENTIFIER:
     return "IDENTIFIER";
+  case TokenType::TYPE:
+    return "TYPE";
   case TokenType::EOF_TOKEN:
     return "EOF";
   default:
@@ -115,16 +117,17 @@ bool Lexer::isKeyword(const std::string &s, TokenType &type) {
     type = TokenType::BOOLEAN_LITERAL;
   else if (s == "FALSE")
     type = TokenType::BOOLEAN_LITERAL;
-  else if (s == "INTEGER")
-    type = TokenType::INTEGER_TYPE;
-  else if (s == "FLOAT")
-    type = TokenType::FLOAT_TYPE;
-  else if (s == "BOOLEAN")
-    type = TokenType::BOOLEAN_TYPE;
-  else if (s == "CHAR")
-    type = TokenType::CHAR_TYPE;
-  else if (s == "STRING")
-    type = TokenType::STRING_TYPE;
+  else if (s == "INTEGER" || s == "FLOAT" || s == "BOOLEAN" || s == "STRING") {
+    type = TokenType::TYPE; // value will carry which one
+  }
+  // else if (s == "INTEGER")
+  //   type = TokenType::INTEGER_TYPE;
+  // else if (s == "FLOAT")
+  //   type = TokenType::FLOAT_TYPE;
+  // else if (s == "BOOLEAN")
+  //   type = TokenType::BOOLEAN_TYPE;
+  // else if (s == "STRING")
+  //   type = TokenType::STRING_TYPE;
   else if (s == "END")
     type = TokenType::END;
   else

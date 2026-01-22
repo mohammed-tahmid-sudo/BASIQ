@@ -27,9 +27,14 @@ public:
 
   std::unique_ptr<ast> ParseTerm();
   std::unique_ptr<ast> ParseFactor();
+  std::unique_ptr<ast> ParseBinOP();
+  std::unique_ptr<ast> ParseComparison();
+
   std::unique_ptr<ast> ParseExpressions();
 
   std::unique_ptr<IfNode> ParseIfElseStatement();
+  std::unique_ptr<WhileNode> ParseWhileStatement();
+  std::unique_ptr<VariableDeclareNode> ParseVariableStatement();
   std::unique_ptr<ast> ParseStatements();
 
   std::vector<std::unique_ptr<ast>> Parse();

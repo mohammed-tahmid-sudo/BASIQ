@@ -44,6 +44,5 @@ factor          ::= number
 
 number          ::= integer | float
 boolean         ::= "TRUE" | "FALSE"
-char            ::= "'" any_character "'"
 string_literal  ::= '"' { any_character } '"'
 identifier      ::= letter { letter | digit | "_" }

@@ -29,6 +29,8 @@ public:
   std::unique_ptr<ast> ParseFactor();
   std::unique_ptr<ast> ParseBinOP();
   std::unique_ptr<ast> ParseComparison();
+  std::unique_ptr<StringNode> ParseStrings();
+  std::unique_ptr<ast> ParseVariables();
 
   std::unique_ptr<ast> ParseExpressions();
 

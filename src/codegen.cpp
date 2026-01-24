@@ -18,397 +18,284 @@
 #include <llvm/Support/TargetSelect.h> // This contains InitializeNativeTarget* functions
 #include <memory>
 
-// llvm::Value *NumberNode::codegen() {
-//   return llvm::ConstantFP::get(llvm::Type::getDoubleTy(*TheContext), number);
-// }
+llvm::Value *NumberNode::codegen(CodegenContext &cg) {
 
-// llvm::Value *VariableNode::codegen() {
-//   llvm::Value *v = NamedValues[name];
-//   if (!v)
-//     LogErrorV("Unknow Variable Name");
-//   return v;
-// }
-
-// llvm::Value *BinaryOperationNode::codegen() {
-//   llvm::Value *LHS = left->codegen();
-//   llvm::Value *RHS = right->codegen();
-
-//   if (!LHS || !RHS)
-//     return nullptr;
-//   switch (op) {
-
-//   case '+':
-//     return Builder->CreateFAdd(LHS, RHS, "addtmp");
-//   case '-':
-//     return Builder->CreateFSub(LHS, RHS, "subtmp");
-//   case '*':
-//     return Builder->CreateFMul(LHS, RHS, "multmp");
-//   case '<':
-//     LHS = Builder->CreateFCmpULT(LHS, RHS, "cmptmp");
-//     // Convert bool 0/1 to double 0.0 or 1.0
-//     return Builder->CreateUIToFP(LHS, llvm::Type::getDoubleTy(*TheContext),
-//                                  "booltmp");
-//   default:
-//     return LogErrorV("invalid binary operator");
-//   }
-// }
-
-// llvm::Value *VariableDeclareNode::codegen() {
-//   llvm::Type *Type = nullptr;
-
-//   if (type == "STRING") {
-//     Type = llvm::Type::getInt8Ty(*TheContext);
-//   } else if (type == "INTEGER") {
-//     Type = llvm::Type::getInt32Ty(*TheContext);
-//   } else if (type == "FLOAT") {
-//     Type = llvm::Type::getFloatTy(*TheContext);
-//   } else {
-//     LogErrorV("INVALID VARIABLE DELACRATION TYPE");
-//   }
-
-//   llvm::Function *func = Builder->GetInsertBlock()->getParent();
-//   llvm::IRBuilder<> tmpbuilder(&func->getEntryBlock(),
-//                                func->getEntryBlock().begin());
-//   llvm::AllocaInst *alloca = tmpbuilder.CreateAlloca(Type, nullptr, name);
-
-//   // Initialize if there is an initializer
-//   if (contents) {
-//     llvm::Value *initVal = contents->codegen();
-//     if (!initVal)
-//       return nullptr;
-//     Builder->CreateStore(initVal, alloca);
-//   }
-
-//   NamedValues[name] = alloca;
-//   return alloca;
-// }
-
-// llvm::Value *AssignmentNode::codegen() {
-//   llvm::Value *var = NamedValues[name->name];
-//   if (!var) {
-//     std::cerr << "Unknown variable name: " << name->name << std::endl;
-//     return nullptr;
-//   }
-
-//   llvm::Value *val = value->codegen();
-//   if (!val)
-//     return nullptr;
-
-//   Builder->CreateStore(val, var);
-//   return val;
-// }
-
-// llvm::Value *IdentifierNode::codegen() {
-//   return nullptr;
-// } // DON"T NEED IT. I THINK...
-
-// llvm::Value *StringNode::codegen() {
-//   return Builder->CreateGlobalStringPtr(value);
-// }
-
-// llvm::Value *ReturnNode::codegen() {
-//   llvm::Value *V = expr ? expr->codegen() : nullptr;
-//   return Builder->CreateRet(V);
-// }
-
-// llvm::Value *BreakNode::codegen() { return Builder->CreateBr(CurrentLoopEnd);
-// }
-
-// llvm::Value *ContinueNode::codegen() {
-//   return Builder->CreateBr(CurrentLoopStart);
-// }
-
-// llvm::Value *ComparisonNode::codegen() {
-
-//   llvm::Value *L = left->codegen();
-//   llvm::Value *R = right->codegen();
-
-//   if (!L || !R) {
-//     return nullptr;
-//   }
-
-//   llvm::Type *Type = nullptr;
-
-//   if (comp == "==")
-//     return Builder->CreateICmpEQ(L, R, "cmptmp");
-//   else if (comp == "!=")
-//     return Builder->CreateICmpNE(L, R, "cmptmp");
-//   else if (comp == "<")
-//     return Builder->CreateICmpSLT(L, R, "cmptmp");
-//   else if (comp == "<=")
-//     return Builder->CreateICmpSLE(L, R, "cmptmp");
-//   else if (comp == ">")
-//     return Builder->CreateICmpSGT(L, R, "cmptmp");
-//   else if (comp == ">=")
-//     return Builder->CreateICmpSGE(L, R, "cmptmp");
-
-//   return LogErrorV("Unknown comparison operator");
-// }
-
-// llvm::Value *IfNode::codegen() {
-//   llvm::Value *CondV = condition->codegen();
-//   if (!CondV)
-//     return nullptr;
-
-//   CondV = Builder->CreateICmpNE(
-//       CondV, llvm::ConstantInt::get(CondV->getType(), 0), "ifcond");
-
-//   llvm::Function *TheFunction = Builder->GetInsertBlock()->getParent();
-
-//   llvm::BasicBlock *ThenBB =
-//       llvm::BasicBlock::Create(*TheContext, "then", TheFunction);
-//   llvm::BasicBlock *MergeBB =
-//       llvm::BasicBlock::Create(*TheContext, "ifcont", TheFunction);
-//   llvm::BasicBlock *ElseBB =
-//       !elseBody.empty()
-//           ? llvm::BasicBlock::Create(*TheContext, "else", TheFunction)
-//           : nullptr;
-
-//   if (ElseBB)
-//     Builder->CreateCondBr(CondV, ThenBB, ElseBB);
-//   else
-//     Builder->CreateCondBr(CondV, ThenBB, MergeBB);
-
-//   Builder->SetInsertPoint(ThenBB);
-//   for (auto &stmt : body)
-//     stmt->codegen();
-//   Builder->CreateBr(MergeBB);
-
-//   if (ElseBB) {
-//     Builder->SetInsertPoint(ElseBB);
-//     for (auto &stmt : elseBody)
-//       stmt->codegen();
-//     Builder->CreateBr(MergeBB);
-//   }
-
-//   Builder->SetInsertPoint(MergeBB);
-//   return nullptr;
-// }
-
-// llvm::Value *WhileNode::codegen() {
-//   llvm::Function *TheFunction = Builder->GetInsertBlock()->getParent();
-
-//   llvm::BasicBlock *CondBB =
-//       llvm::BasicBlock::Create(*TheContext, "whilecond", TheFunction);
-//   llvm::BasicBlock *LoopBB =
-//       llvm::BasicBlock::Create(*TheContext, "loop", TheFunction);
-//   llvm::BasicBlock *AfterBB =
-//       llvm::BasicBlock::Create(*TheContext, "afterloop", TheFunction);
-
-//   // branch to condition first
-//   Builder->CreateBr(CondBB);
-
-//   // condition block
-//   Builder->SetInsertPoint(CondBB);
-//   llvm::Value *CondV = condition->codegen();
-//   if (!CondV)
-//     return nullptr;
-//   CondV = Builder->CreateICmpNE(
-//       CondV, llvm::ConstantInt::get(CondV->getType(), 0), "whilecond");
-
-//   Builder->CreateCondBr(CondV, LoopBB, AfterBB);
-
-//   // loop block
-//   Builder->SetInsertPoint(LoopBB);
-//   llvm::BasicBlock *PrevLoopStart = CurrentLoopStart;
-//   llvm::BasicBlock *PrevLoopEnd = CurrentLoopEnd;
-//   CurrentLoopStart = CondBB;
-//   CurrentLoopEnd = AfterBB;
-
-//   for (auto &stmt : body)
-//     stmt->codegen();
-
-//   Builder->CreateBr(CondBB); // back to condition
-
-//   // restore previous loop context
-//   CurrentLoopStart = PrevLoopStart;
-//   CurrentLoopEnd = PrevLoopEnd;
-
-//   // after loop
-//   Builder->SetInsertPoint(AfterBB);
-
-//   return nullptr;
-// }
-
-// llvm::Value *ForNode::codegen() { return nullptr; } // GONNA IMPLEMENT IT
-// LATER llvm::Value *FunctionNode::codegen() {
-//   return nullptr;
-// } // THIS TOO
-//   //
-// llvm::Value *PrintNode::codegen() {
-//   llvm::Value *Val = args->codegen();
-//   if (!Val)
-//     return nullptr;
-
-//   // declare printf if not already
-//   llvm::Function *PrintF = TheModule->getFunction("printf");
-//   if (!PrintF) {
-//     std::vector<llvm::Type *> printfArgs;
-//     printfArgs.push_back(Builder->getInt8Ty());
-//     llvm::FunctionType *printfType =
-//         llvm::FunctionType::get(Builder->getInt32Ty(), printfArgs, true);
-//     PrintF = llvm::Function::Create(printfType,
-//     llvm::Function::ExternalLinkage,
-//                                     "printf", TheModule.get());
-//   }
-
-//   // create format string for int
-//   llvm::Value *formatStr = Builder->CreateGlobalStringPtr("%f\n");
-//   return Builder->CreateCall(PrintF, {formatStr, Val}, "printfCall");
-// }
-
-// // int main() {
-
-// //   llvm::InitializeNativeTarget();
-// //   llvm::InitializeNativeTargetAsmPrinter();
-
-// //   TheContext = std::make_unique<llvm::LLVMContext>();
-// //   TheModule  = std::make_unique<llvm::Module>("my_module", *TheContext);
-// //   Builder    = std::make_unique<llvm::IRBuilder<>>(*TheContext);
-
-// //   // double main()
-// //   auto *FT = llvm::FunctionType::get(
-// //       llvm::Type::getDoubleTy(*TheContext), false);
-
-// //   auto *F = llvm::Function::Create(
-// //       FT, llvm::Function::ExternalLinkage, "main", TheModule.get());
-
-// //   auto *BB = llvm::BasicBlock::Create(*TheContext, "entry", F);
-// //   Builder->SetInsertPoint(BB);
-
-// //   auto code = std::make_unique<BinaryOperationNode>(
-// //       std::make_unique<NumberNode>(5),
-// //       std::make_unique<NumberNode>(5),
-// //       '+');
-
-// //   llvm::Value *Result = code->codegen();
-// //   Builder->CreateRet(Result);
-
-// //   if (llvm::verifyFunction(*F, &llvm::errs())) {
-// //     llvm::errs() << "Function verification failed\n";
-// //     return 1;
-// //   }
-
-// //   // Print IR
-// //   TheModule->print(llvm::outs(), nullptr);
-
-// //   return 0;
-// // }
-
-#include "ast.h"
-
-// -------- Number --------
-llvm::Value *
-NumberNode::codegen(llvm::LLVMContext &context, llvm::IRBuilder<> &builder,
-                    llvm::Module *module,
-                    std::map<std::string, llvm::Value *> &namedValues) {
-  return llvm::ConstantFP::get(llvm::Type::getDoubleTy(context), number);
+  return llvm::ConstantFP::get(llvm::Type::getDoubleTy(*cg.TheContext), number);
 }
 
-// -------- Variable --------
-llvm::Value *
-VariableNode::codegen(llvm::LLVMContext &context, llvm::IRBuilder<> &builder,
-                      llvm::Module *module,
-                      std::map<std::string, llvm::Value *> &namedValues) {
-  llvm::Value *v = namedValues[name];
+llvm::Value *VariableNode::codegen(CodegenContext &cg) {
+  llvm::Value *v = cg.NamedValues[name];
   if (!v)
-    return LogErrorV("Unknown variable name");
-  return builder.CrteateLoad(v, name);
+    LogErrorV("Unknow Variable Name");
+  return v;
 }
 
-// -------- Binary Operation --------
-llvm::Value *BinaryOperationNode::codegen(
-    llvm::LLVMContext &context, llvm::IRBuilder<> &builder,
-    llvm::Module *module, std::map<std::string, llvm::Value *> &namedValues) {
-  llvm::Value *LHS = left->codegen(context, builder, module, namedValues);
-  llvm::Value *RHS = right->codegen(context, builder, module, namedValues);
+llvm::Value *BinaryOperationNode::codegen(CodegenContext &cg) {
+  llvm::Value *LHS = left->codegen(cg);
+
+  llvm::Value *RHS = right->codegen(cg);
 
   if (!LHS || !RHS)
     return nullptr;
-
   switch (op) {
+
   case '+':
-    return builder.CreateFAdd(LHS, RHS, "addtmp");
+    return cg.Builder->CreateFAdd(LHS, RHS, "addtmp");
   case '-':
-    return builder.CreateFSub(LHS, RHS, "subtmp");
+    return cg.Builder->CreateFSub(LHS, RHS, "subtmp");
   case '*':
-    return builder.CreateFMul(LHS, RHS, "multmp");
-  case '<': {
-    auto cmp = builder.CreateFCmpULT(LHS, RHS, "cmptmp");
-    return builder.CreateUIToFP(cmp, llvm::Type::getDoubleTy(context),
-                                "booltmp");
-  }
+    return cg.Builder->CreateFMul(LHS, RHS, "multmp");
+  case '<':
+    LHS = cg.Builder->CreateFCmpULT(LHS, RHS, "cmptmp");
+    // Convert bool 0/1 to double 0.0 or 1.0
+    return cg.Builder->CreateUIToFP(
+        LHS, llvm::Type::getDoubleTy(*cg.TheContext), "booltmp");
   default:
-    return LogErrorV("Invalid binary operator");
+    return LogErrorV("invalid binary operator");
   }
 }
 
-// -------- Variable Declaration --------
-llvm::Value *VariableDeclareNode::codegen(
-    llvm::LLVMContext &context, llvm::IRBuilder<> &builder,
-    llvm::Module *module, std::map<std::string, llvm::Value *> &namedValues) {
-  llvm::Type *typePtr = nullptr;
+llvm::Value *VariableDeclareNode::codegen(CodegenContext &cg) {
+  llvm::Type *Type = nullptr;
 
-  if (type == "STRING")
-    typePtr = llvm::Type::getInt8Ty(context);
-  else if (type == "INTEGER")
-    typePtr = llvm::Type::getInt32Ty(context);
-  else if (type == "FLOAT")
-    typePtr = llvm::Type::getDoubleTy(context);
-  else
-    return LogErrorV("Invalid variable declaration type");
-
-  llvm::Function *func = builder.GetInsertBlock()->getParent();
-  llvm::IRBuilder<> tmpBuilder(&func->getEntryBlock(),
-                               func->getEntryBlock().begin());
-  llvm::AllocaInst *alloca = tmpBuilder.CreateAlloca(typePtr, nullptr, name);
-
-  if (contents) {
-    llvm::Value *initVal =
-        contents->codegen(context, builder, module, namedValues);
-    if (!initVal)
-      return nullptr;
-    builder.CreateStore(initVal, alloca);
+  if (type == "STRING") {
+    Type = llvm::Type::getInt8Ty(*cg.TheContext);
+  } else if (type == "INTEGER") {
+    Type = llvm::Type::getInt32Ty(*cg.TheContext);
+  } else if (type == "FLOAT") {
+    Type = llvm::Type::getFloatTy(*cg.TheContext);
+  } else {
+    LogErrorV("INVALID VARIABLE DELACRATION TYPE");
   }
 
-  namedValues[name] = alloca;
+  llvm::Function *func = cg.Builder->GetInsertBlock()->getParent();
+  llvm::IRBuilder<> tmpbuilder(&func->getEntryBlock(),
+                               func->getEntryBlock().begin());
+  llvm::AllocaInst *alloca = tmpbuilder.CreateAlloca(Type, nullptr, name);
+
+  // Initialize if there is an initializer
+  if (contents) {
+    llvm::Value *initVal = contents->codegen(cg);
+    if (!initVal)
+      return nullptr;
+    cg.Builder->CreateStore(initVal, alloca);
+  }
+
+  cg.NamedValues[name] = alloca;
   return alloca;
 }
 
-// -------- Assignment --------
-llvm::Value *
-AssignmentNode::codegen(llvm::LLVMContext &context, llvm::IRBuilder<> &builder,
-                        llvm::Module *module,
-                        std::map<std::string, llvm::Value *> &namedValues) {
-  llvm::Value *var = namedValues[name->name];
-  if (!var)
-    return LogErrorV("Unknown variable name in assignment");
+llvm::Value *AssignmentNode::codegen(CodegenContext &cg) {
+  llvm::Value *var = cg.NamedValues[name->name];
+  if (!var) {
+    std::cerr << "Unknown variable name: " << name->name << std::endl;
+    return nullptr;
+  }
 
-  llvm::Value *val = value->codegen(context, builder, module, namedValues);
+  llvm::Value *val = value->codegen(cg);
   if (!val)
     return nullptr;
 
-  builder.CreateStore(val, var);
+  cg.Builder->CreateStore(val, var);
   return val;
 }
 
-// -------- String --------
-llvm::Value *
-StringNode::codegen(llvm::LLVMContext &context, llvm::IRBuilder<> &builder,
-                    llvm::Module *module,
-                    std::map<std::string, llvm::Value *> &namedValues) {
-  return builder.CreateGlobalStringPtr(value);
+llvm::Value *IdentifierNode::codegen(CodegenContext &cg) {
+  return nullptr;
+} // DON"T NEED IT. I THINK...
+
+llvm::Value *StringNode::codegen(CodegenContext &cg) {
+  return cg.Builder->CreateGlobalStringPtr(value);
 }
 
-// -------- Control Flow --------
-llvm::Value *
-ReturnNode::codegen(llvm::LLVMContext &context, llvm::IRBuilder<> &builder,
-                    llvm::Module *module,
-                    std::map<std::string, llvm::Value *> &namedValues) {
-  llvm::Value *V =
-      expr ? expr->codegen(context, builder, module, namedValues) : nullptr;
-  return builder.CreateRet(V);
+llvm::Value *ReturnNode::codegen(CodegenContext &cg) {
+  llvm::Value *V = expr ? expr->codegen(cg) : nullptr;
+  return cg.Builder->CreateRet(V);
 }
 
-// Break / Continue would need CurrentLoopStart/End pointers passed as
-// parameters
+llvm::Value *BreakNode::codegen(CodegenContext &cg) {
+  return cg.Builder->CreateBr(CurrentLoopEnd);
+}
+
+llvm::Value *ContinueNode::codegen(CodegenContext &cg) {
+  return cg.Builder->CreateBr(CurrentLoopStart);
+}
+
+llvm::Value *ComparisonNode::codegen(CodegenContext &cg) {
+
+  llvm::Value *L = left->codegen(cg);
+  llvm::Value *R = right->codegen(cg);
+
+  if (!L || !R) {
+    return nullptr;
+  }
+
+  llvm::Type *Type = nullptr;
+
+  if (comp == "==")
+    return cg.Builder->CreateICmpEQ(L, R, "cmptmp");
+  else if (comp == "!=")
+    return cg.Builder->CreateICmpNE(L, R, "cmptmp");
+  else if (comp == "<")
+    return cg.Builder->CreateICmpSLT(L, R, "cmptmp");
+  else if (comp == "<=")
+    return cg.Builder->CreateICmpSLE(L, R, "cmptmp");
+  else if (comp == ">")
+    return cg.Builder->CreateICmpSGT(L, R, "cmptmp");
+  else if (comp == ">=")
+    return cg.Builder->CreateICmpSGE(L, R, "cmptmp");
+
+  return LogErrorV("Unknown comparison operator");
+}
+
+llvm::Value *IfNode::codegen(CodegenContext &cg) {
+  llvm::Value *CondV = condition->codegen(cg);
+  if (!CondV)
+    return nullptr;
+
+  CondV = cg.Builder->CreateICmpNE(
+      CondV, llvm::ConstantInt::get(CondV->getType(), 0), "ifcond");
+
+  llvm::Function *TheFunction = cg.Builder->GetInsertBlock()->getParent();
+
+  llvm::BasicBlock *ThenBB =
+      llvm::BasicBlock::Create(*cg.TheContext, "then", TheFunction);
+  llvm::BasicBlock *MergeBB =
+      llvm::BasicBlock::Create(*cg.TheContext, "ifcont", TheFunction);
+  llvm::BasicBlock *ElseBB =
+      !elseBody.empty()
+          ? llvm::BasicBlock::Create(*cg.TheContext, "else", TheFunction)
+          : nullptr;
+
+  if (ElseBB)
+    cg.Builder->CreateCondBr(CondV, ThenBB, ElseBB);
+  else
+    cg.Builder->CreateCondBr(CondV, ThenBB, MergeBB);
+
+  cg.Builder->SetInsertPoint(ThenBB);
+  for (auto &stmt : body)
+    stmt->codegen(cg);
+  cg.Builder->CreateBr(MergeBB);
+
+  if (ElseBB) {
+    cg.Builder->SetInsertPoint(ElseBB);
+    for (auto &stmt : elseBody)
+      stmt->codegen(cg);
+    cg.Builder->CreateBr(MergeBB);
+  }
+
+  cg.Builder->SetInsertPoint(MergeBB);
+  return nullptr;
+}
+
+llvm::Value *WhileNode::codegen(CodegenContext &cg) {
+  llvm::Function *TheFunction = cg.Builder->GetInsertBlock()->getParent();
+
+  llvm::BasicBlock *CondBB =
+      llvm::BasicBlock::Create(*cg.TheContext, "whilecond", TheFunction);
+  llvm::BasicBlock *LoopBB =
+      llvm::BasicBlock::Create(*cg.TheContext, "loop", TheFunction);
+  llvm::BasicBlock *AfterBB =
+      llvm::BasicBlock::Create(*cg.TheContext, "afterloop", TheFunction);
+
+  // branch to condition first
+  cg.Builder->CreateBr(CondBB);
+
+  // condition block
+  cg.Builder->SetInsertPoint(CondBB);
+  llvm::Value *CondV = condition->codegen(cg);
+  if (!CondV)
+    return nullptr;
+  CondV = cg.Builder->CreateICmpNE(
+      CondV, llvm::ConstantInt::get(CondV->getType(), 0), "whilecond");
+
+  cg.Builder->CreateCondBr(CondV, LoopBB, AfterBB);
+
+  // loop block
+  cg.Builder->SetInsertPoint(LoopBB);
+  llvm::BasicBlock *PrevLoopStart = CurrentLoopStart;
+  llvm::BasicBlock *PrevLoopEnd = CurrentLoopEnd;
+  CurrentLoopStart = CondBB;
+  CurrentLoopEnd = AfterBB;
+
+  for (auto &stmt : body)
+    stmt->codegen(cg);
+
+  cg.Builder->CreateBr(CondBB); // back to condition
+
+  // restore previous loop context
+  CurrentLoopStart = PrevLoopStart;
+  CurrentLoopEnd = PrevLoopEnd;
+
+  // after loop
+  cg.Builder->SetInsertPoint(AfterBB);
+
+  return nullptr;
+}
+
+llvm::Value *ForNode::codegen(CodegenContext &cg) {
+  return nullptr;
+} // GONNA IMPLEMENT ITLATERll
+llvm::Value *FunctionNode::codegen(CodegenContext &cg) {
+  return nullptr;
+} // THIS TOO
+  //
+llvm::Value *PrintNode::codegen(CodegenContext &cg) {
+  llvm::Value *Val = args->codegen(cg);
+  if (!Val)
+    return nullptr;
+
+  // declare printf if not already
+  llvm::Function *PrintF = cg.TheModule->getFunction("printf");
+  if (!PrintF) {
+    std::vector<llvm::Type *> printfArgs;
+    printfArgs.push_back(cg.Builder->getInt8Ty());
+    llvm::FunctionType *printfType =
+        llvm::FunctionType::get(cg.Builder->getInt32Ty(), printfArgs, true);
+    PrintF = llvm::Function::Create(printfType, llvm::Function::ExternalLinkage,
+                                    "printf", cg.TheModule.get());
+  }
+
+  // create format string for int
+  llvm::Value *formatStr = cg.Builder->CreateGlobalStringPtr("%f\n");
+  return cg.Builder->CreateCall(PrintF, {formatStr, Val}, "printfCall");
+}
+
+// int main() {
+
+//   llvm::InitializeNativeTarget();
+//   llvm::InitializeNativeTargetAsmPrinter();
+
+//   TheContext = std::make_unique<llvm::LLVMContext>();
+//   TheModule  = std::make_unique<llvm::Module>("my_module", *TheContext);
+//   Builder    = std::make_unique<llvm::IRBuilder<>>(*TheContext);
+
+//   // double main()
+//   auto *FT = llvm::FunctionType::get(
+//       llvm::Type::getDoubleTy(*TheContext), false);
+
+//   auto *F = llvm::Function::Create(
+//       FT, llvm::Function::ExternalLinkage, "main", TheModule.get());
+
+//   auto *BB = llvm::BasicBlock::Create(*TheContext, "entry", F);
+//   Builder->SetInsertPoint(BB);
+
+//   auto code = std::make_unique<BinaryOperationNode>(
+//       std::make_unique<NumberNode>(5),
+//       std::make_unique<NumberNode>(5),
+//       '+');
+
+//   llvm::Value *Result = code->codegen(llvm::LLVMContext &TheContext,
+//   llvm::IRBuilder<> &Builder, llvm::Module *Module, std::map<std::string,
+//   llvm::Value *> &NamedValues); Builder->CreateRet(Result);
+
+//   if (llvm::verifyFunction(*F, &llvm::errs())) {
+//     llvm::errs() << "Function verification failed\n";
+//     return 1;
+//   }
+
+//   // Print IR
+//   TheModule->print(llvm::outs(), nullptr);
+
+//   return 0;
+// }

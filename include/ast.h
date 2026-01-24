@@ -16,6 +16,16 @@
 #include <memory>
 #include <string>
 
+struct CodegenContext {
+  std::unique_ptr<llvm::LLVMContext> &TheContext;
+  std::unique_ptr<llvm::IRBuilder<>> &Builder;
+  std::unique_ptr<llvm::Module> &TheModule;
+  std::map<std::string, llvm::Value *> &NamedValues;
+
+  llvm::BasicBlock *CurrentLoopStart = nullptr;
+  llvm::BasicBlock *CurrentLoopEnd = nullptr;
+};
+
 inline llvm::Value *LogErrorV(const char *Str) {
   std::cerr << "LogError: " << Str << std::endl; // print to console
   return nullptr;
@@ -27,10 +37,7 @@ struct ast {
   virtual ~ast() = default;
 
   virtual std::string repr() = 0;
-  virtual llvm::Value *
-  codegen(llvm::LLVMContext &context, llvm::IRBuilder<> &builder,
-          llvm::Module *module,
-          std::map<std::string, llvm::Value *> &namedValues) = 0;
+  virtual llvm::Value *codegen(CodegenContext &cg) = 0;
 };
 
 // -------- Expression / Value --------
@@ -40,10 +47,7 @@ public:
   double number;
   explicit NumberNode(double n);
   std::string repr() override;
-  llvm::Value *
-  codegen(llvm::LLVMContext &context, llvm::IRBuilder<> &builder,
-          llvm::Module *module,
-          std::map<std::string, llvm::Value *> &namedValues) override;
+  llvm::Value *codegen(CodegenContext &cg) override;
 };
 
 class VariableNode : public ast {
@@ -51,10 +55,7 @@ public:
   std::string name;
   explicit VariableNode(const std::string &n);
   std::string repr() override;
-  llvm::Value *
-  codegen(llvm::LLVMContext &context, llvm::IRBuilder<> &builder,
-          llvm::Module *module,
-          std::map<std::string, llvm::Value *> &namedValues) override;
+  llvm::Value *codegen(CodegenContext &cg) override;
 };
 
 class VariableDeclareNode : public ast {
@@ -67,10 +68,7 @@ public:
                       std::unique_ptr<ast> cntnt);
 
   std::string repr() override;
-  llvm::Value *
-  codegen(llvm::LLVMContext &context, llvm::IRBuilder<> &builder,
-          llvm::Module *module,
-          std::map<std::string, llvm::Value *> &namedValues) override;
+  llvm::Value *codegen(CodegenContext &cg) override;
 };
 
 class AssignmentNode : public ast {
@@ -82,10 +80,7 @@ public:
   AssignmentNode(std::unique_ptr<VariableNode> n, std::unique_ptr<ast> v,
                  const std::string &t = "");
   std::string repr() override;
-  llvm::Value *
-  codegen(llvm::LLVMContext &context, llvm::IRBuilder<> &builder,
-          llvm::Module *module,
-          std::map<std::string, llvm::Value *> &namedValues) override;
+  llvm::Value *codegen(CodegenContext &cg) override;
 };
 
 class BinaryOperationNode : public ast {
@@ -97,10 +92,7 @@ public:
   BinaryOperationNode(std::unique_ptr<ast> l, std::unique_ptr<ast> r,
                       const char o);
   std::string repr() override;
-  llvm::Value *
-  codegen(llvm::LLVMContext &context, llvm::IRBuilder<> &builder,
-          llvm::Module *module,
-          std::map<std::string, llvm::Value *> &namedValues) override;
+  llvm::Value *codegen(CodegenContext &cg) override;
 };
 
 class IdentifierNode : public ast {
@@ -108,10 +100,7 @@ public:
   std::string id;
   explicit IdentifierNode(const std::string &n);
   std::string repr() override;
-  llvm::Value *
-  codegen(llvm::LLVMContext &context, llvm::IRBuilder<> &builder,
-          llvm::Module *module,
-          std::map<std::string, llvm::Value *> &namedValues) override;
+  llvm::Value *codegen(CodegenContext &cg) override;
 };
 
 class StringNode : public ast {
@@ -119,10 +108,7 @@ public:
   std::string value;
   explicit StringNode(const std::string &v);
   std::string repr() override;
-  llvm::Value *
-  codegen(llvm::LLVMContext &context, llvm::IRBuilder<> &builder,
-          llvm::Module *module,
-          std::map<std::string, llvm::Value *> &namedValues) override;
+  llvm::Value *codegen(CodegenContext &cg) override;
 };
 
 // -------- Control Flow --------
@@ -132,28 +118,19 @@ public:
   std::unique_ptr<ast> expr;
   explicit ReturnNode(std::unique_ptr<ast> e = nullptr);
   std::string repr() override;
-  llvm::Value *
-  codegen(llvm::LLVMContext &context, llvm::IRBuilder<> &builder,
-          llvm::Module *module,
-          std::map<std::string, llvm::Value *> &namedValues) override;
+  llvm::Value *codegen(CodegenContext &cg) override;
 };
 
 class BreakNode : public ast {
 public:
   std::string repr() override;
-  llvm::Value *
-  codegen(llvm::LLVMContext &context, llvm::IRBuilder<> &builder,
-          llvm::Module *module,
-          std::map<std::string, llvm::Value *> &namedValues) override;
+  llvm::Value *codegen(CodegenContext &cg) override;
 };
 
 class ContinueNode : public ast {
 public:
   std::string repr() override;
-  llvm::Value *
-  codegen(llvm::LLVMContext &context, llvm::IRBuilder<> &builder,
-          llvm::Module *module,
-          std::map<std::string, llvm::Value *> &namedValues) override;
+  llvm::Value *codegen(CodegenContext &cg) override;
 };
 
 class ComparisonNode : public ast {
@@ -165,10 +142,7 @@ public:
   ComparisonNode(std::unique_ptr<ast> l, std::unique_ptr<ast> r,
                  const std::string &c);
   std::string repr() override;
-  llvm::Value *
-  codegen(llvm::LLVMContext &context, llvm::IRBuilder<> &builder,
-          llvm::Module *module,
-          std::map<std::string, llvm::Value *> &namedValues) override;
+  llvm::Value *codegen(CodegenContext &cg) override;
 };
 
 class IfNode : public ast {
@@ -180,10 +154,7 @@ public:
   IfNode(std::unique_ptr<ast> cond, std::vector<std::unique_ptr<ast>> ifBody,
          std::vector<std::unique_ptr<ast>> elseBody = {});
   std::string repr() override;
-  llvm::Value *
-  codegen(llvm::LLVMContext &context, llvm::IRBuilder<> &builder,
-          llvm::Module *module,
-          std::map<std::string, llvm::Value *> &namedValues) override;
+  llvm::Value *codegen(CodegenContext &cg) override;
 };
 
 class WhileNode : public ast {
@@ -193,10 +164,7 @@ public:
 
   WhileNode(std::unique_ptr<ast> cond, std::vector<std::unique_ptr<ast>> b);
   std::string repr() override;
-  llvm::Value *
-  codegen(llvm::LLVMContext &context, llvm::IRBuilder<> &builder,
-          llvm::Module *module,
-          std::map<std::string, llvm::Value *> &namedValues) override;
+  llvm::Value *codegen(CodegenContext &cg) override;
 };
 
 class ForNode : public ast {
@@ -209,10 +177,7 @@ public:
   ForNode(std::unique_ptr<ast> i, std::unique_ptr<ast> cond,
           std::unique_ptr<ast> inc, std::vector<std::unique_ptr<ast>> b);
   std::string repr() override;
-  llvm::Value *
-  codegen(llvm::LLVMContext &context, llvm::IRBuilder<> &builder,
-          llvm::Module *module,
-          std::map<std::string, llvm::Value *> &namedValues) override;
+  llvm::Value *codegen(CodegenContext &cg) override;
 };
 
 class FunctionNode : public ast {
@@ -224,10 +189,7 @@ public:
   FunctionNode(const std::string &n, std::vector<std::string> params,
                std::vector<std::unique_ptr<ast>> b);
   std::string repr() override;
-  llvm::Value *
-  codegen(llvm::LLVMContext &context, llvm::IRBuilder<> &builder,
-          llvm::Module *module,
-          std::map<std::string, llvm::Value *> &namedValues) override;
+  llvm::Value *codegen(CodegenContext &cg) override;
 };
 
 class PrintNode : public ast {
@@ -235,8 +197,5 @@ public:
   std::unique_ptr<ast> args;
   explicit PrintNode(std::unique_ptr<ast> arg);
   std::string repr() override;
-  llvm::Value *
-  codegen(llvm::LLVMContext &context, llvm::IRBuilder<> &builder,
-          llvm::Module *module,
-          std::map<std::string, llvm::Value *> &namedValues) override;
+  llvm::Value *codegen(CodegenContext &cg) override;
 };

@@ -11,13 +11,13 @@
 #include <llvm/IR/Verifier.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
+#include <map>
 #include <memory>
 #include <ostream>
 #include <parser.h>
 #include <string>
+#include <utility>
 #include <vector>
-#include <map>
-
 
 // Error helper
 // llvm::Value *LogErrorV(const char *Str);
@@ -28,14 +28,12 @@ static std::unique_ptr<llvm::Module> TheModule;
 static std::map<std::string, llvm::Value *> NamedValues;
 
 // actual definition and memory allocation
-llvm::BasicBlock* CurrentLoopStart = nullptr;
-llvm::BasicBlock* CurrentLoopEnd = nullptr;
+llvm::BasicBlock *CurrentLoopStart = nullptr;
+llvm::BasicBlock *CurrentLoopEnd = nullptr;
 
 // just declare it, no memory allocated yet
-extern llvm::BasicBlock* CurrentLoopStart;
-extern llvm::BasicBlock* CurrentLoopEnd;
-
-
+extern llvm::BasicBlock *CurrentLoopStart;
+extern llvm::BasicBlock *CurrentLoopEnd;
 
 std::string Parser::Peek(bool value) {
   if (x >= input.size() || y >= input[x].size())
@@ -291,37 +289,49 @@ std::vector<std::unique_ptr<ast>> Parser::Parse() {
 //   }
 // }
 
-int main() {
-  llvm::InitializeNativeTarget();
-  llvm::InitializeNativeTargetAsmPrinter();
+// int main() {
+//   // Initialize LLVM
+//   llvm::InitializeNativeTarget();
+//   llvm::InitializeNativeTargetAsmPrinter();
 
-  TheContext = std::make_unique<llvm::LLVMContext>();
-  TheModule = std::make_unique<llvm::Module>("my_module", *TheContext);
-  Builder = std::make_unique<llvm::IRBuilder<>>(*TheContext);
+//   // Create LLVM objects
+//   auto TheContext = std::make_unique<llvm::LLVMContext>();
+//   auto TheModule = std::make_unique<llvm::Module>("my_module", *TheContext);
+//   auto Builder = std::make_unique<llvm::IRBuilder<>>(*TheContext);
+//   std::map<std::string, llvm::Value *> NamedValues;
 
-  // double main()
-  auto *FT =
-      llvm::FunctionType::get(llvm::Type::getDoubleTy(*TheContext), false);
+//   // Create main function: double main()
+//   auto *FT =
+//       llvm::FunctionType::get(llvm::Type::getDoubleTy(*TheContext), false);
+//   auto *F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, "main",
+//                                    TheModule.get());
 
-  auto *F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, "main",
-                                   TheModule.get());
+//   auto *BB = llvm::BasicBlock::Create(*TheContext, "entry", F);
+//   Builder->SetInsertPoint(BB);
 
-  auto *BB = llvm::BasicBlock::Create(*TheContext, "entry", F);
-  Builder->SetInsertPoint(BB);
+//   // Example code to generate
+//   auto code = std::make_unique<BinaryOperationNode>(
+//       std::make_unique<NumberNode>(5), std::make_unique<NumberNode>(5), '+');
 
-  auto code = std::make_unique<BinaryOperationNode>(
-      std::make_unique<NumberNode>(5), std::make_unique<NumberNode>(5), '+');
+//   // Construct CodegenContext with **raw references**
+//   CodegenContext cg{
+//       TheContext, // LLVMContext&
+//       Builder,    // IRBuilder&
+//       TheModule,  // Module&
+//       NamedValues  // map&
+//   };
 
-  llvm::Value *Result = code->codegen(std::move(TheContext), Builder, TheModule, NamedValues);
-  Builder->CreateRet(Result);
+//   llvm::Value *Result = code->codegen(cg);
+//   Builder->CreateRet(Result);
 
-  if (llvm::verifyFunction(*F, &llvm::errs())) {
-    llvm::errs() << "Function verification failed\n";
-    return 1;
-  }
+//   // Verify function
+//   if (llvm::verifyFunction(*F, &llvm::errs())) {
+//     llvm::errs() << "Function verification failed\n";
+//     return 1;
+//   }
 
-  // Print IR
-  TheModule->print(llvm::outs(), nullptr);
+//   // Print IR
+//   TheModule->print(llvm::outs(), nullptr);
 
-  return 0;
-}
+//   return 0;
+// }

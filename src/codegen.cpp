@@ -249,7 +249,9 @@ llvm::Value *PrintNode::codegen(CodegenContext &cg) {
   llvm::Function *PrintF = cg.TheModule->getFunction("printf");
   if (!PrintF) {
     std::vector<llvm::Type *> printfArgs;
-    printfArgs.push_back(cg.Builder->getInt8Ty());
+    printfArgs.push_back(
+        llvm::PointerType::get(llvm::Type::getInt8Ty(*cg.TheContext), 0));
+
     llvm::FunctionType *printfType =
         llvm::FunctionType::get(cg.Builder->getInt32Ty(), printfArgs, true);
     PrintF = llvm::Function::Create(printfType, llvm::Function::ExternalLinkage,
@@ -258,7 +260,10 @@ llvm::Value *PrintNode::codegen(CodegenContext &cg) {
 
   // create format string for int
   llvm::Value *formatStr = cg.Builder->CreateGlobalStringPtr("%f\n");
-  return cg.Builder->CreateCall(PrintF, {formatStr, Val}, "printfCall");
+  // return cg.Builder->CreateCall(PrintF, {formatStr, Val}, "printfCall");
+
+  cg.Builder->CreateCall(PrintF, {formatStr, Val});
+  return llvm::ConstantFP::get(llvm::Type::getDoubleTy(*cg.TheContext), 0.0);
 }
 
 // int main() {

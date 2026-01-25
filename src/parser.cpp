@@ -1,7 +1,9 @@
 #include "lexer.h"
+#include <algorithm>
 #include <ast.h>
 #include <colors.h>
 #include <functional>
+#include <iomanip>
 #include <iostream>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Function.h>
@@ -221,44 +223,77 @@ std::unique_ptr<VariableDeclareNode> Parser::ParseVariableStatement() {
     Expect(TokenType::AS);
     type = Peek(true);
     Expect(TokenType::TYPE);
+	Expect(TokenType::EOF_TOKEN);
 
   } else if (Peek() == tokenTypeToString(TokenType::AS)) {
     Consume();
     type = Peek(true);
     Expect(TokenType::TYPE);
+	Expect(TokenType::EOF_TOKEN);
   }
 
   return std::make_unique<VariableDeclareNode>(name, type, std::move(args));
 }
 
+std::unique_ptr<PrintNode> Parser::ParsePrintStatements() {
+  Expect(TokenType::LPAREN);
+  auto args = ParseExpressions();
+  Expect(TokenType::RPAREN);
+  Expect(TokenType::EOF_TOKEN);
+
+  return std::make_unique<PrintNode>(std::move(args));
+}
+
 std::unique_ptr<ast> Parser::ParseStatements() {
-  std::unique_ptr<ast> output;
 
   if (Peek() == tokenTypeToString(TokenType::IF)) {
     Consume();
-    output = ParseIfElseStatement();
+    return ParseIfElseStatement();
 
   } else if (Peek() == tokenTypeToString(TokenType::WHILE)) {
     Consume();
-    output = ParseWhileStatement();
+    return ParseWhileStatement();
+  } else if (Peek() == tokenTypeToString(TokenType::PRINT)) {
+    Consume();
+    return ParsePrintStatements();
   } else if (Peek() == tokenTypeToString(TokenType::VAR)) {
     Consume();
-    output = ParseVariableStatement();
+    return ParseVariableStatement();
   }
 
-  return output;
+  return nullptr;
 }
+
+// std::vector<std::unique_ptr<ast>> Parser::Parse() {
+//   std::vector<std::unique_ptr<ast>> output;
+
+//   auto stmt = ParseStatements();
+//   if (stmt) {
+//     output.push_back(std::move(stmt));
+//   } else {
+//     auto expr = ParseExpressions();
+//     if (expr) {
+//       output.push_back(std::move(expr));
+//     }
+//   }
+
+//   return output;
+// }
 
 std::vector<std::unique_ptr<ast>> Parser::Parse() {
   std::vector<std::unique_ptr<ast>> output;
 
-  auto stmt = ParseStatements();
-  if (stmt) {
-    output.push_back(std::move(stmt));
-  } else {
-    auto expr = ParseExpressions();
-    if (expr) {
-      output.push_back(std::move(expr));
+  while (true) {
+    std::unique_ptr<ast> node = ParseStatements();
+    if (!node) {
+      node = ParseExpressions();
+    }
+
+    if (node) {
+      output.push_back(std::move(node));
+    } else {
+      // Stop parsing if no more tokens
+      break;
     }
   }
 
@@ -303,7 +338,8 @@ std::vector<std::unique_ptr<ast>> Parser::Parse() {
 //   // Create main function: double main()
 //   auto *FT =
 //       llvm::FunctionType::get(llvm::Type::getDoubleTy(*TheContext), false);
-//   auto *F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, "main",
+//   auto *F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage,
+//   "main",
 //                                    TheModule.get());
 
 //   auto *BB = llvm::BasicBlock::Create(*TheContext, "entry", F);

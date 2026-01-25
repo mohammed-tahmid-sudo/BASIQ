@@ -59,7 +59,7 @@ llvm::Value *VariableDeclareNode::codegen(CodegenContext &cg) {
   llvm::Type *Type = nullptr;
 
   if (type == "STRING") {
-    Type = llvm::Type::getInt8Ty(*cg.TheContext);
+    Type = llvm::PointerType::get(llvm::Type::getInt8Ty(*cg.TheContext), 0);
   } else if (type == "INTEGER") {
     Type = llvm::Type::getInt32Ty(*cg.TheContext);
   } else if (type == "FLOAT") {
@@ -241,29 +241,7 @@ llvm::Value *FunctionNode::codegen(CodegenContext &cg) {
 } // THIS TOO
   //
 llvm::Value *PrintNode::codegen(CodegenContext &cg) {
-  llvm::Value *Val = args->codegen(cg);
-  if (!Val)
-    return nullptr;
 
-  // declare printf if not already
-  llvm::Function *PrintF = cg.TheModule->getFunction("printf");
-  if (!PrintF) {
-    std::vector<llvm::Type *> printfArgs;
-    printfArgs.push_back(
-        llvm::PointerType::get(llvm::Type::getInt8Ty(*cg.TheContext), 0));
-
-    llvm::FunctionType *printfType =
-        llvm::FunctionType::get(cg.Builder->getInt32Ty(), printfArgs, true);
-    PrintF = llvm::Function::Create(printfType, llvm::Function::ExternalLinkage,
-                                    "printf", cg.TheModule.get());
-  }
-
-  // create format string for int
-  llvm::Value *formatStr = cg.Builder->CreateGlobalStringPtr("%f\n");
-  // return cg.Builder->CreateCall(PrintF, {formatStr, Val}, "printfCall");
-
-  cg.Builder->CreateCall(PrintF, {formatStr, Val});
-  return llvm::ConstantFP::get(llvm::Type::getDoubleTy(*cg.TheContext), 0.0);
 }
 
 // int main() {

@@ -37,6 +37,7 @@ public:
   std::unique_ptr<IfNode> ParseIfElseStatement();
   std::unique_ptr<WhileNode> ParseWhileStatement();
   std::unique_ptr<VariableDeclareNode> ParseVariableStatement();
+  std::unique_ptr<PrintNode> ParsePrintStatements();
   std::unique_ptr<ast> ParseStatements();
 
   std::vector<std::unique_ptr<ast>> Parse();

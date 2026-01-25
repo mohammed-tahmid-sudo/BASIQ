@@ -1,9 +1,9 @@
 #include <ast.h>
 #include <codegen.h>
+#include <iostream>
 #include <lexer.h>
 #include <parser.h>
 
-#include "llvm/MC/TargetRegistry.h"
 #include <llvm-18/llvm/ADT/APFloat.h>
 #include <llvm-18/llvm/CodeGen/TargetPassConfig.h>
 #include <llvm-18/llvm/IR/Constants.h>
@@ -22,14 +22,46 @@
 #include <llvm-18/llvm/Support/raw_ostream.h>
 #include <llvm-18/llvm/Target/TargetMachine.h>
 #include <llvm-18/llvm/TargetParser/Host.h>
+#include <llvm/MC/TargetRegistry.h>
 
+#include <fstream>
 #include <map>
 #include <memory>
 #include <optional>
 #include <string>
 #include <system_error>
+#include <vector>
 
 int main(int argc, char *argv[]) {
+  if (argc < 2)
+    return 1;
+
+  std::ifstream file(argv[1]);
+  Lexer lex;
+  std::vector<std::vector<Token>> output_lexed;
+  std::string line;
+
+  while (std::getline(file, line)) {
+    std::cout << line << "\n";
+    auto lineTokens = lex.lexerSplitStatements(line);
+    output_lexed.insert(output_lexed.end(), lineTokens.begin(),
+                        lineTokens.end());
+  }
+
+  for (auto &tok : output_lexed) {
+    for (auto &tk : tok) {
+      std::cout << tokenTypeToString(tk.Type) << " : " << tk.Value << std::endl;
+    }
+  }
+
+  Parser parse(output_lexed);
+
+  std::vector<std::unique_ptr<ast>> code = parse.Parse();
+
+  for (auto &tok : code) {
+    std::cout << tok->repr() << std::endl;
+  }
+
   // Initialize LLVM target
   llvm::InitializeNativeTarget();
   llvm::InitializeNativeTargetAsmPrinter();
@@ -43,20 +75,35 @@ int main(int argc, char *argv[]) {
 
   // Create main function
   auto *FT =
-      llvm::FunctionType::get(llvm::Type::getDoubleTy(*TheContext), false);
+      llvm::FunctionType::get(llvm::Type::getInt32Ty(*TheContext), false);
   auto *F = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, "main",
                                    TheModule.get());
   auto *BB = llvm::BasicBlock::Create(*TheContext, "entry", F);
   Builder->SetInsertPoint(BB);
 
   // Sample code
-  auto code = std::make_unique<PrintNode>(std::make_unique<BinaryOperationNode>(
-      std::make_unique<NumberNode>(5), std::make_unique<NumberNode>(5), '+'));
+  // auto code =
+  // std::make_unique<PrintNode>(std::make_unique<BinaryOperationNode>(
+  //     std::make_unique<NumberNode>(5), std::make_unique<NumberNode>(5),
+  //     '+'));
 
   // Codegen context
   CodegenContext cg{TheContext, Builder, TheModule, NamedValues};
-  llvm::Value *Result = code->codegen(cg);
-  Builder->CreateRet(Result);
+
+  llvm::Value *Last = nullptr;
+
+  for (auto &stmt : code)
+    Last = stmt->codegen(cg);
+
+  if (!Last || !Last->getType()->isIntegerTy(32))
+    Last = llvm::ConstantInt::get(llvm::Type::getInt32Ty(*TheContext), 0);
+
+  Builder->CreateRet(Last);
+
+  TheModule->print(llvm::errs(), nullptr);
+
+  // llvm::Value *Result = code->codegen(cg);
+  // Builder->CreateRet(Result);
 
   if (llvm::verifyFunction(*F, &llvm::errs())) {
     llvm::errs() << "Function verification failed\n";

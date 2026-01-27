@@ -19,8 +19,7 @@
 #include <memory>
 
 llvm::Value *NumberNode::codegen(CodegenContext &cg) {
-
-  return llvm::ConstantFP::get(llvm::Type::getDoubleTy(*cg.TheContext), number);
+  return llvm::ConstantFP::get(llvm::Type::getInt32Ty(*cg.TheContext), number);
 }
 
 llvm::Value *VariableNode::codegen(CodegenContext &cg) {
@@ -56,6 +55,7 @@ llvm::Value *BinaryOperationNode::codegen(CodegenContext &cg) {
 }
 
 llvm::Value *VariableDeclareNode::codegen(CodegenContext &cg) {
+  std::cout << "CALLING CODEGEN IN PRINTNODE" << std::endl;
   llvm::Type *Type = nullptr;
 
   if (type == "STRING") {
@@ -239,46 +239,49 @@ llvm::Value *ForNode::codegen(CodegenContext &cg) {
 llvm::Value *FunctionNode::codegen(CodegenContext &cg) {
   return nullptr;
 } // THIS TOO
-  //
+
 llvm::Value *PrintNode::codegen(CodegenContext &cg) {
+  llvm::IRBuilder<> &Builder = *cg.Builder;
+  llvm::LLVMContext &Context = *cg.TheContext;
+  llvm::Module *Module = cg.TheModule.get();
 
+  llvm::Value *ArgVal = args->codegen(cg);
+  if (!ArgVal)
+    return nullptr;
+
+  // Declare printf
+  llvm::Function *PrintfFunc = Module->getFunction("printf");
+  if (!PrintfFunc) {
+    std::vector<llvm::Type *> printfArgs = {
+        llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(Context))};
+    llvm::FunctionType *PrintfType = llvm::FunctionType::get(
+        llvm::Type::getInt32Ty(Context), printfArgs, true);
+    PrintfFunc = llvm::Function::Create(
+        PrintfType, llvm::Function::ExternalLinkage, "printf", Module);
+  }
+
+  llvm::Value *CallVal = nullptr;
+
+  if (ArgVal->getType()->isIntegerTy()) {
+    // Ensure it's i32
+    if (!ArgVal->getType()->isIntegerTy(32)) {
+      ArgVal = Builder.CreateIntCast(ArgVal, Builder.getInt32Ty(),
+                                     /*isSigned=*/true, "int_cast");
+    }
+
+    llvm::Value *FormatStr = Builder.CreateGlobalStringPtr("%d\n");
+    CallVal = Builder.CreateCall(PrintfFunc, {FormatStr, ArgVal});
+  } else if (ArgVal->getType()->isDoubleTy() ||
+             ArgVal->getType()->isFloatTy()) {
+    // Already a floating point number
+    llvm::Value *FormatStr = Builder.CreateGlobalStringPtr("%f\n");
+    CallVal = Builder.CreateCall(PrintfFunc, {FormatStr, ArgVal});
+
+  } else if (ArgVal->getType()->isPointerTy()) {
+    // string (i8*) -> printf %s
+    llvm::Value *FormatStr = Builder.CreateGlobalStringPtr("%s\n");
+    CallVal = Builder.CreateCall(PrintfFunc, {FormatStr, ArgVal});
+  }
+
+  return CallVal;
 }
-
-// int main() {
-
-//   llvm::InitializeNativeTarget();
-//   llvm::InitializeNativeTargetAsmPrinter();
-
-//   TheContext = std::make_unique<llvm::LLVMContext>();
-//   TheModule  = std::make_unique<llvm::Module>("my_module", *TheContext);
-//   Builder    = std::make_unique<llvm::IRBuilder<>>(*TheContext);
-
-//   // double main()
-//   auto *FT = llvm::FunctionType::get(
-//       llvm::Type::getDoubleTy(*TheContext), false);
-
-//   auto *F = llvm::Function::Create(
-//       FT, llvm::Function::ExternalLinkage, "main", TheModule.get());
-
-//   auto *BB = llvm::BasicBlock::Create(*TheContext, "entry", F);
-//   Builder->SetInsertPoint(BB);
-
-//   auto code = std::make_unique<BinaryOperationNode>(
-//       std::make_unique<NumberNode>(5),
-//       std::make_unique<NumberNode>(5),
-//       '+');
-
-//   llvm::Value *Result = code->codegen(llvm::LLVMContext &TheContext,
-//   llvm::IRBuilder<> &Builder, llvm::Module *Module, std::map<std::string,
-//   llvm::Value *> &NamedValues); Builder->CreateRet(Result);
-
-//   if (llvm::verifyFunction(*F, &llvm::errs())) {
-//     llvm::errs() << "Function verification failed\n";
-//     return 1;
-//   }
-
-//   // Print IR
-//   TheModule->print(llvm::outs(), nullptr);
-
-//   return 0;
-// }

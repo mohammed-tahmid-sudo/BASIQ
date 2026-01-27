@@ -1,2 +1,2 @@
 VAR a = 21 AS INTEGER;
-PRINT("Hello world");
+PRINT(a);

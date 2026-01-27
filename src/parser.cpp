@@ -99,7 +99,7 @@ std::unique_ptr<ast> Parser::ParseFactor() {
 
     std::string val = Peek(true);
     Consume();
-    return std::make_unique<NumberNode>(std::stod(val));
+    return std::make_unique<NumberNode>(std::stoi(val));
 
   } else if (Peek() == tokenTypeToString(TokenType::LPAREN)) {
 

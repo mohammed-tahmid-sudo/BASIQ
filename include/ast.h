@@ -44,8 +44,8 @@ struct ast {
 
 class NumberNode : public ast {
 public:
-  double number;
-  explicit NumberNode(double n);
+  int number;
+  explicit NumberNode(int n);
   std::string repr() override;
   llvm::Value *codegen(CodegenContext &cg) override;
 };

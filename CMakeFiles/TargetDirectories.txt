@@ -1,8 +1,0 @@
-/home/tahmid/BASIQ/CMakeFiles/BASIQ.dir
-/home/tahmid/BASIQ/CMakeFiles/intrinsics_gen.dir
-/home/tahmid/BASIQ/CMakeFiles/omp_gen.dir
-/home/tahmid/BASIQ/CMakeFiles/acc_gen.dir
-/home/tahmid/BASIQ/CMakeFiles/RISCVTargetParserTableGen.dir
-/home/tahmid/BASIQ/CMakeFiles/run.dir
-/home/tahmid/BASIQ/CMakeFiles/edit_cache.dir
-/home/tahmid/BASIQ/CMakeFiles/rebuild_cache.dir

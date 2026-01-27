@@ -1,0 +1,1 @@
+/usr/bin/c++ -g CMakeFiles/BASIQ.dir/src/ast.cpp.o CMakeFiles/BASIQ.dir/src/codegen.cpp.o CMakeFiles/BASIQ.dir/src/lexer.cpp.o CMakeFiles/BASIQ.dir/src/main.cpp.o CMakeFiles/BASIQ.dir/src/parser.cpp.o CMakeFiles/BASIQ.dir/src/store.cpp.o CMakeFiles/BASIQ.dir/src/utils.cpp.o -o bin/BASIQ  -L/usr/lib/llvm-18/lib -lLLVM-18 

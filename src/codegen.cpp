@@ -17,16 +17,26 @@
 #include <llvm/IR/Verifier.h>
 #include <llvm/Support/TargetSelect.h> // This contains InitializeNativeTarget* functions
 #include <memory>
+#include <ostream>
 
 llvm::Value *NumberNode::codegen(CodegenContext &cg) {
-  return llvm::ConstantFP::get(llvm::Type::getInt32Ty(*cg.TheContext), number);
+  return llvm::ConstantInt::get(llvm::Type::getInt32Ty(*cg.TheContext), number);
 }
 
 llvm::Value *VariableNode::codegen(CodegenContext &cg) {
   llvm::Value *v = cg.NamedValues[name];
   if (!v)
     LogErrorV("Unknow Variable Name");
-  return v;
+
+  // get the type of the alloca
+  llvm::AllocaInst *alloca = llvm::dyn_cast<llvm::AllocaInst>(v);
+  if (!alloca) {
+    LogErrorV("Invalid alloca instruction");
+    return nullptr;
+  }
+  llvm::Type *type = alloca->getAllocatedType();
+
+  return cg.Builder->CreateLoad(type, v, name);
 }
 
 llvm::Value *BinaryOperationNode::codegen(CodegenContext &cg) {
@@ -55,7 +65,6 @@ llvm::Value *BinaryOperationNode::codegen(CodegenContext &cg) {
 }
 
 llvm::Value *VariableDeclareNode::codegen(CodegenContext &cg) {
-  std::cout << "CALLING CODEGEN IN PRINTNODE" << std::endl;
   llvm::Type *Type = nullptr;
 
   if (type == "STRING") {
@@ -270,11 +279,6 @@ llvm::Value *PrintNode::codegen(CodegenContext &cg) {
     }
 
     llvm::Value *FormatStr = Builder.CreateGlobalStringPtr("%d\n");
-    CallVal = Builder.CreateCall(PrintfFunc, {FormatStr, ArgVal});
-  } else if (ArgVal->getType()->isDoubleTy() ||
-             ArgVal->getType()->isFloatTy()) {
-    // Already a floating point number
-    llvm::Value *FormatStr = Builder.CreateGlobalStringPtr("%f\n");
     CallVal = Builder.CreateCall(PrintfFunc, {FormatStr, ArgVal});
 
   } else if (ArgVal->getType()->isPointerTy()) {

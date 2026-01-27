@@ -283,7 +283,7 @@ std::unique_ptr<ast> Parser::ParseStatements() {
 std::vector<std::unique_ptr<ast>> Parser::Parse() {
   std::vector<std::unique_ptr<ast>> output;
 
-  while (true) {
+  while (x < input.size()) {
     std::unique_ptr<ast> node = ParseStatements();
     if (!node) {
       node = ParseExpressions();
@@ -292,8 +292,9 @@ std::vector<std::unique_ptr<ast>> Parser::Parse() {
     if (node) {
       output.push_back(std::move(node));
     } else {
-      // Stop parsing if no more tokens
-      break;
+      // Move to the next statement if the current one is unparsable
+      x++;
+      y = 0;
     }
   }
 

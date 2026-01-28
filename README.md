@@ -6,8 +6,13 @@
 program         ::= header_section? { statement }
 
 header_section  ::= { header_line }
-header_line     ::= "@" identifier string_literal
+header_line     ::= "@" ( "version" | "author" | "import" | "syscall" ) header_value
+header_value    ::= string_literal | syscall_signature
 
+// Syscall signature
+syscall_signature ::= identifier "(" [ param_list ] ")"
+
+// Statements
 statement       ::= var_decl
                   | assignment
                   | func_decl
@@ -59,8 +64,6 @@ while_stmt      ::= "while" expr "{" { statement } "}"
 class_decl      ::= "class" identifier "{" { class_member } "}"
 class_member    ::= var_decl | func_decl
 
-// Print statement
-print_stmt      ::= "print" "(" expr ")"
 
 // Identifiers and literals
 identifier      ::= letter { letter | digit | "_" }

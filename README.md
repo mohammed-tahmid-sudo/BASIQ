@@ -6,6 +6,7 @@
 ## 1. Program
 ```
 
+```
 <program> ::= <statement_list>
 
 ```

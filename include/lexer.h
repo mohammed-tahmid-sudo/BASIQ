@@ -1,4 +1,4 @@
-#pragma  once 
+#pragma once
 #include <string>
 #include <vector>
 
@@ -64,14 +64,20 @@ struct Token {
 };
 
 class Lexer {
-  std::vector<std::string> input;
+  std::string input;
   size_t index = 0;
 
 public:
-  Lexer(std::vector<std::string> inp) : input(inp) {}
-  std::string Peek() const;
-  std::string PeekNext() const;
-  void consume();
+  Lexer(std::string inp) : input(inp) {}
+  char Peek() const;
+  char PeekNext() const;
+  void Consume();
+  void skipWhiwSpace();
+    static std::string toLower(const std::string &s) {
+    std::string r; r.reserve(s.size());
+    for (char c : s) r.push_back(std::tolower(static_cast<unsigned char>(c)));
+    return r;
+  }
 
   std::vector<std::vector<Token>> lexer();
 };

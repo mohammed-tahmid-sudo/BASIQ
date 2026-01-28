@@ -3,9 +3,9 @@
 # BASIC-Like Programming Language Grammar
 
 ```ebnf 
-program         ::= header_section? { statement }
+program         ::= header_section? { statement ";" }
 
-header_section  ::= { header_line }
+header_section  ::= { header_line ";" }
 header_line     ::= "@" ( "version" | "author" | "import" | "syscall" ) header_value
 header_value    ::= string_literal | syscall_signature
 
@@ -45,25 +45,29 @@ literal         ::= integer_literal
                   | string_literal
 
 // Functions
-func_decl       ::= "func" identifier "(" [ param_list ] ")" ["->" type] "{" { statement } "}"
+func_decl       ::= "func" identifier "(" [ param_list ] ")" ["->" type] "{" { statement ";" } "}"
 param_list      ::= param { "," param }
 param           ::= identifier ":" type
 func_call       ::= identifier "(" [ arg_list ] ")"
 arg_list        ::= expr { "," expr }
 
 // Conditionals
-if_stmt         ::= "if" expr "{" { statement } "}" [ "else" "{" { statement } "}" ]
+if_stmt         ::= "if" expr "{" { statement ";" } "}" [ "else" "{" { statement ";" } "}" ]
 
 // Loops
-for_stmt        ::= "for" identifier "in" range "{" { statement } "}"
+for_stmt        ::= "for" identifier "in" range "{" { statement ";" } "}"
 range           ::= expr ".." expr
 
-while_stmt      ::= "while" expr "{" { statement } "}"
+while_stmt      ::= "while" expr "{" { statement ";" } "}"
 
 // Classes
-class_decl      ::= "class" identifier "{" { class_member } "}"
-class_member    ::= var_decl | func_decl
+class_decl      ::= "class" identifier "{" { class_member ";" } "}"
+class_member    ::= var_decl
+                  | func_decl
+                  | constructor_decl
 
+// Constructor (C-style, same name as class)
+constructor_decl ::= "func" identifier "(" [ param_list ] ")" "{" { statement ";" } "}"
 
 // Identifiers and literals
 identifier      ::= letter { letter | digit | "_" }
@@ -74,6 +78,6 @@ string_literal  ::= '"' { any_character } '"'
 
 letter          ::= "a".."z" | "A".."Z"
 digit           ::= "0".."9"
-any_character   ::= ? any valid character ? 
+any_character   ::= ? any valid character ?
 
 ```

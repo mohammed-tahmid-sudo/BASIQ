@@ -1,48 +1,105 @@
 # My Basic Compiler Grammar
 
-Here is the grammar for my statically typed language:
+```markdown
+# BASIC-Like Programming Language Grammar
 
-```ebnf
-program         ::= { statement }
+## 1. Program
+```
 
-statement       ::= var_decl
-                  | assignment
-                  | if_stmt
-                  | while_stmt
-                  | return_stmt
-                  | expr_stmt
-                  | print_stmt
+<program> ::= <statement_list>
 
-var_decl        ::= "VAR" identifier "=" expr "AS" type
-type            ::= "INTEGER" | "FLOAT" | "BOOLEAN" | "CHAR" | "STRING"
+```
 
-assignment      ::= identifier "=" expr
+## 2. Statement List
+```
 
-expr_stmt       ::= expr
+<statement_list> ::= <statement>
+| <statement> <statement_list>
 
-if_stmt         ::= "IF" ( expr ) "THEN" { statement } [ "ELSE" { statement } ] "END"
+```
 
-while_stmt      ::= "WHILE" ( expr ) "DO" { statement } "END"
+## 3. Statements
+```
 
-return_stmt     ::= "RETURN" expr
+<statement> ::= <assignment>
+| <print_stmt>
+| <input_stmt>
+| <if_stmt>
+| <for_stmt>
+| <while_stmt>
+| <end_stmt>
 
-print_stmt      ::= "PRINT" "(" expr { "," expr } ")"
+```
 
-Expr            ::= expr "+" term
-                  | expr "-" term
-                  | term
+## 4. Assignment
+```
 
-term            ::= term "*" factor
-                  | term "/" factor
-                  | factor
+<assignment> ::= <variable> "=" <expression> <variable> ::= [A-Za-z][A-Za-z0-9]*
 
-factor          ::= number
-                  | boolean
-                  | char
-                  | identifier
-                  | "(" expr ")"
+```
 
-number          ::= integer | float
-boolean         ::= "TRUE" | "FALSE"
-string_literal  ::= '"' { any_character } '"'
-identifier      ::= letter { letter | digit | "_" }
+## 5. Expressions
+```
+
+<expression> ::= <term>
+| <expression> "+" <term>
+| <expression> "-" <term>
+
+<term>       ::= <factor>
+| <term> "*" <factor>
+| <term> "/" <factor>
+
+<factor>     ::= <number>
+| <variable>
+| "(" <expression> ")"
+
+<number>     ::= [0-9]+
+
+```
+
+## 6. Print Statement
+```
+
+<print_stmt> ::= "PRINT" <expression>
+
+```
+
+## 7. Input Statement
+```
+
+<input_stmt> ::= "INPUT" <variable>
+
+```
+
+## 8. If Statement
+```
+
+<if_stmt> ::= "IF" <condition> "THEN" <statement_list> ["ELSE" <statement_list>] "END IF"
+
+<condition> ::= <expression> <relop> <expression>
+
+<relop> ::= "=" | "<>" | "<" | ">" | "<=" | ">="
+
+```
+
+## 9. For Loop
+```
+
+<for_stmt> ::= "FOR" <variable> "=" <expression> "TO" <expression> ["STEP" <expression>] <statement_list> "NEXT" <variable>
+
+```
+
+## 10. While Loop
+```
+
+<while_stmt> ::= "WHILE" <condition> <statement_list> "WEND"
+
+```
+
+## 11. End Statement
+```
+
+<end_stmt> ::= "END"
+
+```
+```

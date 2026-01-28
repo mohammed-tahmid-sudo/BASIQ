@@ -28,9 +28,8 @@ enum TkenType {
   FLOAT,
   BOOLEAN,
   STRING,
-  VAR, 
-  AS, 
-  
+  VAR,
+  AS,
 
 };
 

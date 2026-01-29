@@ -1,3 +1,5 @@
+
+#pragma once
 #include <lexer.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Value.h>
@@ -6,6 +8,23 @@
 #include <memory>
 
 enum Types { INTEGERTYPE, FLOATTYEP, BOOLEANTYPE, STRINGTYPE, IDENTIFIERTYPE };
+enum BinaryOpTokentype {
+  PLUSOP,
+  MINUSOP,
+  MULOP,
+  DIVOP,
+  EQUALOP,
+  NOTEQUALOP,
+  LESSTHANOP,
+  GREATERTHANOP,
+  LESSTHANEQUALOP,
+  GREATERTHANEQUALOP,
+  ANDOP,
+  OROP
+};
+
+std::string TypesToString(Types tp);
+std::string binaryOpTokenTypeToString(BinaryOpTokentype op);
 
 struct CodegenContext {
   std::unique_ptr<llvm::LLVMContext> TheContext;
@@ -64,7 +83,7 @@ struct BooleanLiteralNode : ast {
 struct BinaryOperationNode : ast {
   std::unique_ptr<ast> left;
   std::unique_ptr<ast> right;
-  Token op;
+  BinaryOpTokentype op;
 
   BinaryOperationNode(std::unique_ptr<ast> LHS, std::unique_ptr<ast> RHS)
       : left(std::move(LHS)), right(std::move(RHS)) {}

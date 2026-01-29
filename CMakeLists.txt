@@ -67,6 +67,8 @@ set_target_properties(BASIQ PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions")
+
 # Custom run target
 add_custom_target(run
     COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target BASIQ

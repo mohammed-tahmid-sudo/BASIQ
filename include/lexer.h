@@ -57,6 +57,7 @@ enum TokenType {
   // End of file
   EOF_TOKEN
 };
+const char *tokenName(TokenType t);
 
 struct Token {
   TokenType type;
@@ -73,9 +74,11 @@ public:
   char PeekNext() const;
   void Consume();
   void skipWhiwSpace();
-    static std::string toLower(const std::string &s) {
-    std::string r; r.reserve(s.size());
-    for (char c : s) r.push_back(std::tolower(static_cast<unsigned char>(c)));
+  static std::string toLower(const std::string &s) {
+    std::string r;
+    r.reserve(s.size());
+    for (char c : s)
+      r.push_back(std::tolower(static_cast<unsigned char>(c)));
     return r;
   }
 

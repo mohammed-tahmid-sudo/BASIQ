@@ -409,7 +409,7 @@ int main() {
 @version "1.0";
 @author "Tahmid";
 
-let x: Integer = 10; let y: Float = 3.14;
+let x: Integer = 10; const let y: Float = 3.14;
 
 func add(a: Integer, b: Integer) -> Integer {
   return a + b;
@@ -424,6 +424,7 @@ if x >= 5 {
 for i in 0..10 {
   print (i);
 };
+
 )";
 
   Lexer lexer(src);

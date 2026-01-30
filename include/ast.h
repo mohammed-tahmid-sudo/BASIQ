@@ -8,7 +8,7 @@
 #include <memory>
 #include <vector>
 
-enum Types { INTEGERTYPE, FLOATTYEP, BOOLEANTYPE, STRINGTYPE, IDENTIFIERTYPE };
+enum Types { INTEGERTYPE, FLOATTYPE, BOOLEANTYPE, STRINGTYPE, IDENTIFIERTYPE, VOIDTYPE };
 enum BinaryOpTokentype {
   PLUSOP,
   MINUSOP,
@@ -95,8 +95,8 @@ struct BinaryOperationNode : ast {
   std::unique_ptr<ast> right;
   BinaryOpTokentype op;
 
-  BinaryOperationNode(std::unique_ptr<ast> LHS, std::unique_ptr<ast> RHS)
-      : left(std::move(LHS)), right(std::move(RHS)) {}
+  BinaryOperationNode(std::unique_ptr<ast> LHS, std::unique_ptr<ast> RHS, BinaryOpTokentype o)
+      : left(std::move(LHS)), right(std::move(RHS)), op(o) {}
 
   std::string repr();
   llvm::Value *codegen(CodegenContext &cc);

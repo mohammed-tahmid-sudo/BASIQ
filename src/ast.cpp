@@ -6,7 +6,7 @@ std::string TypesToString(Types tp) {
   switch (tp) {
   case INTEGERTYPE:
     return "Integer";
-  case FLOATTYEP:
+  case FLOATTYPE:
     return "Float";
   case BOOLEANTYPE:
     return "Boolean";

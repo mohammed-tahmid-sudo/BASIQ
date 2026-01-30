@@ -1,6 +1,9 @@
 #include <ast.h>
 #include <iostream>
+#include <llvm-18/llvm/ADT/STLFunctionalExtras.h>
 #include <llvm-18/llvm/IR/Constants.h>
+#include <llvm-18/llvm/IR/DerivedTypes.h>
+#include <llvm-18/llvm/IR/Function.h>
 #include <llvm-18/llvm/IR/Type.h>
 #include <llvm/ExecutionEngine/Orc/LLJIT.h>
 #include <llvm/ExecutionEngine/Orc/ThreadSafeModule.h>
@@ -35,10 +38,47 @@ llvm::Value *IdentifierNode::codegen(CodegenContext &cc) {
   throw std::runtime_error("Unknown variable: " + val);
 }
 
+// llvm::Value *BinaryOperationNode::codegen(CodegenContext &cc) {
+//   llvm::Value *L = left->codegen(cc);
+//   llvm::Value *R = right->codegen(cc);
+
+//   if (!L || !R)
+//     return nullptr;
+
+//   switch (op) {
+//   case PLUSOP:
+//     return cc.Builder->CreateFAdd(L, R, "addtmp");
+//   case MINUSOP:
+//     return cc.Builder->CreateFSub(L, R, "subtmp");
+//   case MULOP:
+//     return cc.Builder->CreateFMul(L, R, "multmp");
+//   case DIVOP:
+//     return cc.Builder->CreateFDiv(L, R, "divtmp");
+//   case EQUALOP:
+//     return cc.Builder->CreateFCmpUEQ(L, R, "eqtmp");
+//   case NOTEQUALOP:
+//     return cc.Builder->CreateFCmpUNE(L, R, "netmp");
+//   case LESSTHANOP:
+//     return cc.Builder->CreateFCmpULT(L, R, "lttmp");
+//   case GREATERTHANOP:
+//     return cc.Builder->CreateFCmpUGT(L, R, "gttmp");
+//   case LESSTHANEQUALOP:
+//     return cc.Builder->CreateFCmpULE(L, R, "letmp");
+//   case GREATERTHANEQUALOP:
+//     return cc.Builder->CreateFCmpUGE(L, R, "getmp");
+//   case ANDOP:
+//     return cc.Builder->CreateAnd(L, R, "andtmp");
+//   case OROP:
+//     return cc.Builder->CreateOr(L, R, "ortmp");
+//   default:
+//     throw std::runtime_error("Unknown binary operator");
+//     return nullptr;
+//   }
+// }
+
 llvm::Value *BinaryOperationNode::codegen(CodegenContext &cc) {
   llvm::Value *L = left->codegen(cc);
   llvm::Value *R = right->codegen(cc);
-
   if (!L || !R)
     return nullptr;
 
@@ -51,24 +91,35 @@ llvm::Value *BinaryOperationNode::codegen(CodegenContext &cc) {
     return cc.Builder->CreateFMul(L, R, "multmp");
   case DIVOP:
     return cc.Builder->CreateFDiv(L, R, "divtmp");
+
   case EQUALOP:
-    return cc.Builder->CreateFCmpUEQ(L, R, "eqtmp");
+    return cc.Builder->CreateFCmpOEQ(L, R, "eqtmp");
   case NOTEQUALOP:
-    return cc.Builder->CreateFCmpUNE(L, R, "netmp");
+    return cc.Builder->CreateFCmpONE(L, R, "netmp");
   case LESSTHANOP:
-    return cc.Builder->CreateFCmpULT(L, R, "lttmp");
+    return cc.Builder->CreateFCmpOLT(L, R, "lttmp");
   case GREATERTHANOP:
-    return cc.Builder->CreateFCmpUGT(L, R, "gttmp");
+    return cc.Builder->CreateFCmpOGT(L, R, "gttmp");
   case LESSTHANEQUALOP:
-    return cc.Builder->CreateFCmpULE(L, R, "letmp");
+    return cc.Builder->CreateFCmpOLE(L, R, "letmp");
   case GREATERTHANEQUALOP:
-    return cc.Builder->CreateFCmpUGE(L, R, "getmp");
-  case ANDOP:
+    return cc.Builder->CreateFCmpOGE(L, R, "getmp");
+
+  case ANDOP: {
+    auto *zero = llvm::ConstantFP::get(L->getType(), 0.0);
+    L = cc.Builder->CreateFCmpONE(L, zero, "lbool");
+    R = cc.Builder->CreateFCmpONE(R, zero, "rbool");
     return cc.Builder->CreateAnd(L, R, "andtmp");
-  case OROP:
+  }
+
+  case OROP: {
+    auto *zero = llvm::ConstantFP::get(L->getType(), 0.0);
+    L = cc.Builder->CreateFCmpONE(L, zero, "lbool");
+    R = cc.Builder->CreateFCmpONE(R, zero, "rbool");
     return cc.Builder->CreateOr(L, R, "ortmp");
+  }
+
   default:
-    throw std::runtime_error("Unknown binary operator");
     return nullptr;
   }
 }
@@ -80,7 +131,7 @@ llvm::Value *VariableDeclareNode::codegen(CodegenContext &cc) {
   case INTEGERTYPE:
     llvmType = llvm::Type::getInt32Ty(*cc.TheContext);
     break;
-  case FLOATTYEP:
+  case FLOATTYPE:
     llvmType = llvm::Type::getFloatTy(*cc.TheContext);
     break;
   case BOOLEANTYPE:
@@ -133,101 +184,62 @@ llvm::Value *AssignmentNode::codegen(CodegenContext &cc) {
 // }
 
 llvm::Value *FunctionNode::codegen(CodegenContext &cc) {
-  // Build parameter type list inline (no helpers)
-  std::vector<llvm::Type *> paramTypes;
-  paramTypes.reserve(args.size());
-  for (size_t i = 0; i < args.size(); ++i) {
-    // each arg node is assumed to carry its type in .ReturnType
-    switch (args[i]->ReturnType) {
-    case INTEGERTYPE:
-      paramTypes.push_back(llvm::Type::getInt32Ty(*cc.TheContext));
-      break;
-    case FLOATTYEP:
-      paramTypes.push_back(llvm::Type::getFloatTy(*cc.TheContext));
-      break;
-    case BOOLEANTYPE:
-      paramTypes.push_back(llvm::Type::getInt1Ty(*cc.TheContext));
-      break;
-    case STRINGTYPE:
-      paramTypes.push_back(llvm::Type::getInt8PtrTy(*cc.TheContext));
-      break;
-    default:
-      // unknown parameter type
-      return nullptr;
-    }
-  }
-
-  // Compute return type inline
   llvm::Type *retType = nullptr;
-  switch (ReturnType) {
-  case INTEGERTYPE:
+
+  if (ReturnType == Types::INTEGERTYPE) {
     retType = llvm::Type::getInt32Ty(*cc.TheContext);
-    break;
-  case FLOATTYEP:
-    retType = llvm::Type::getFloatTy(*cc.TheContext);
-    break;
-  case BOOLEANTYPE:
+  } else if (ReturnType == Types::BOOLEANTYPE) {
     retType = llvm::Type::getInt1Ty(*cc.TheContext);
-    break;
-  case STRINGTYPE:
-    retType = llvm::Type::getInt8PtrTy(*cc.TheContext);
-    break;
-  default:
-    return nullptr;
+  } else if (ReturnType == Types::STRINGTYPE) {
+    retType = llvm::PointerType::get(llvm::Type::getInt8Ty(*cc.TheContext), 0);
+  } else if (ReturnType == Types::FLOATTYPE) {
+    retType = llvm::Type::getFloatTy(*cc.TheContext);
+  } else if (ReturnType == Types::VOIDTYPE) {
+    retType = llvm::Type::getVoidTy(*cc.TheContext);
   }
 
-  llvm::FunctionType *ft =
-      llvm::FunctionType::get(retType, paramTypes, /*isVarArg=*/false);
+  std::vector<llvm::Type *> argTypes;
+  for (auto &arg : args) {
+    argTypes.push_back(arg->codegen(cc)->getType());
+  }
+
+  llvm::FunctionType *funcType =
+      llvm::FunctionType::get(retType, argTypes, false);
+
   llvm::Function *func = llvm::Function::Create(
-      ft, llvm::Function::ExternalLinkage, name, cc.Module.get());
-  // name and register arguments
+      funcType, llvm::Function::ExternalLinkage, name, cc.Module.get());
+
+  // Name the arguments and store in NamedValues
   unsigned idx = 0;
-  for (llvm::Argument &A : func->args()) {
-    A.setName("arg" + std::to_string(idx++));
+  for (auto &arg : func->args()) {
+    if (idx < args.size()) {
+      arg.setName("arg" +
+                  std::to_string(
+                      idx)); // optional: get name from arg node if it has one
+      cc.NamedValues[arg.getName().str()] = &arg;
+    }
+    ++idx;
   }
 
-  // Create entry block and set insert point
-  llvm::BasicBlock *entry =
+  // Create entry basic block
+  llvm::BasicBlock *BB =
       llvm::BasicBlock::Create(*cc.TheContext, "entry", func);
-  cc.Builder->SetInsertPoint(entry);
-
-  // Populate NamedValues so body can reference parameters by name
-  for (llvm::Argument &A : func->args()) {
-    cc.NamedValues[std::string(A.getName())] = &A;
-  }
+  cc.Builder->SetInsertPoint(BB);
 
   // Generate body
-  llvm::Value *bodyVal = nullptr;
   if (contents) {
-    bodyVal = contents->codegen(cc);
-    if (!bodyVal) {
-      func->eraseFromParent(); // clean up on failure
-      return nullptr;
+    llvm::Value *retVal = contents->codegen(cc);
+    // If function is not void and body doesn't generate a return, add one
+    if (!retType->isVoidTy() && retVal) {
+      cc.Builder->CreateRet(retVal);
+    } else if (retType->isVoidTy()) {
+      cc.Builder->CreateRetVoid();
     }
   } else {
-    // no contents: provide a default return for non-void functions
-    if (retType->isIntegerTy(32)) {
-      bodyVal = llvm::ConstantInt::get(retType, 0);
-    } else if (retType->isFloatTy()) {
-      bodyVal =
-          llvm::ConstantFP::get(retType->getContext(), llvm::APFloat(0.0f));
-    } else if (retType->isIntegerTy(1)) {
-      bodyVal = llvm::ConstantInt::get(retType, 0);
-    } else if (retType->isPointerTy()) {
-      bodyVal = llvm::ConstantPointerNull::get(
-          llvm::cast<llvm::PointerType>(retType));
-    } else {
-      func->eraseFromParent();
-      return nullptr;
+    // No body
+    if (retType->isVoidTy()) {
+      cc.Builder->CreateRetVoid();
     }
-  }
-
-  cc.Builder->CreateRet(bodyVal);
-
-  // Verify function
-  if (llvm::verifyFunction(*func, &llvm::errs())) {
-    func->eraseFromParent();
-    return nullptr;
   }
 
   return func;
@@ -338,4 +350,25 @@ llvm::Value *WhileNode::codegen(CodegenContext &cc) {
 
   cc.Builder->SetInsertPoint(afterBB);
   return nullptr;
+}
+
+int main() {
+  CodegenContext ctx("My_Module");
+
+  // 40 + 2
+  auto lhs = std::make_unique<IntegerNode>(40);
+  auto rhs = std::make_unique<IntegerNode>(2);
+
+  auto bin = std::make_unique<BinaryOperationNode>(
+      std::move(lhs), std::move(rhs), BinaryOpTokentype::PLUSOP);
+
+  std::vector<std::unique_ptr<ast>> noArgs;
+
+  auto fn =
+      std::make_unique<FunctionNode>("test",
+                                     std::move(bin), // function body
+                                     Types::INTEGERTYPE, std::move(noArgs));
+
+  fn->codegen(ctx);
+  ctx.Module->print(llvm::errs(), nullptr);
 }

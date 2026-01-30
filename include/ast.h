@@ -6,6 +6,7 @@
 #include <unordered_map>
 
 #include <memory>
+#include <vector>
 
 enum Types { INTEGERTYPE, FLOATTYEP, BOOLEANTYPE, STRINGTYPE, IDENTIFIERTYPE };
 enum BinaryOpTokentype {
@@ -45,39 +46,48 @@ struct ast {
   virtual ~ast() = default;
 };
 
-struct IntLiteralNode : ast {
+struct IntegerNode : ast {
   int val = 0;
 
-  IntLiteralNode(const int v) : val(v) {}
+  IntegerNode(const int v) : val(v) {}
 
-  virtual std::string repr();
-  virtual llvm::Value *codegen(CodegenContext &cc);
+  std::string repr();
+  llvm::Value *codegen(CodegenContext &cc);
 };
-struct FloatLiteralNode : ast {
+struct FloatNode : ast {
   float val = 0;
 
-  FloatLiteralNode(const float v) : val(v) {}
+  FloatNode(const float v) : val(v) {}
 
-  virtual std::string repr();
-  virtual llvm::Value *codegen(CodegenContext &cc);
+  std::string repr();
+  llvm::Value *codegen(CodegenContext &cc);
 };
 
-struct StringLiteralNode : ast {
+struct StringNode : ast {
   std::string val = 0;
 
-  StringLiteralNode(const std::string v) : val(v) {}
+  StringNode(const std::string v) : val(v) {}
 
-  virtual std::string repr();
-  virtual llvm::Value *codegen(CodegenContext &cc);
+  std::string repr();
+  llvm::Value *codegen(CodegenContext &cc);
 };
 
-struct BooleanLiteralNode : ast {
+struct BooleanNode : ast {
   bool val = 0;
 
-  BooleanLiteralNode(const bool v) : val(v) {}
+  BooleanNode(const bool v) : val(v) {}
 
-  virtual std::string repr();
-  virtual llvm::Value *codegen(CodegenContext &cc);
+  std::string repr();
+  llvm::Value *codegen(CodegenContext &cc);
+};
+
+struct IdentifierNode : ast {
+  std::string val;
+
+  IdentifierNode(const std::string &v) : val(v) {}
+
+  std::string repr();
+  llvm::Value *codegen(CodegenContext &cc);
 };
 
 struct BinaryOperationNode : ast {
@@ -88,8 +98,8 @@ struct BinaryOperationNode : ast {
   BinaryOperationNode(std::unique_ptr<ast> LHS, std::unique_ptr<ast> RHS)
       : left(std::move(LHS)), right(std::move(RHS)) {}
 
-  virtual std::string repr();
-  virtual llvm::Value *codegen(CodegenContext &cc);
+  std::string repr();
+  llvm::Value *codegen(CodegenContext &cc);
 };
 
 struct VariableDeclareNode : ast {
@@ -99,8 +109,8 @@ struct VariableDeclareNode : ast {
   VariableDeclareNode(std::string nm, std::unique_ptr<ast> cntnt, Types tp)
       : name(nm), Content(std::move(cntnt)), type(tp) {}
 
-  virtual std::string repr();
-  virtual llvm::Value *codegen(CodegenContext &cc);
+  std::string repr();
+  llvm::Value *codegen(CodegenContext &cc);
 };
 
 struct AssignmentNode : ast {
@@ -110,18 +120,23 @@ struct AssignmentNode : ast {
   AssignmentNode(std::string nm, std::unique_ptr<ast> cntnt, Types tp)
       : name(nm), Content(std::move(cntnt)), type(tp) {}
 
-  virtual std::string repr();
-  virtual llvm::Value *codegen(CodegenContext &cc);
+  std::string repr();
+  llvm::Value *codegen(CodegenContext &cc);
 };
 
 struct FunctionNode : ast {
   std::string name;
+  Types ReturnType;
+  std::vector<std::unique_ptr<ast>> args;
   std::unique_ptr<ast> contents;
-  FunctionNode(std::string nm, std::unique_ptr<ast> cntnt)
-      : name(nm), contents(std::move(cntnt)) {}
 
-  virtual std::string repr();
-  virtual llvm::Value *codegen(CodegenContext &cc);
+  FunctionNode(std::string nm, std::unique_ptr<ast> cntnt, Types tp,
+               std::vector<std::unique_ptr<ast>> arg)
+      : name(std::move(nm)), ReturnType(tp), args(std::move(arg)),
+        contents(std::move(cntnt)) {}
+
+  std::string repr();
+  llvm::Value *codegen(CodegenContext &cc);
 };
 
 struct CompountNode : ast {
@@ -129,8 +144,8 @@ struct CompountNode : ast {
 
   CompountNode(std::vector<std::unique_ptr<ast>> cntnt)
       : contents(std::move(cntnt)) {}
-  virtual std::string repr();
-  virtual llvm::Value *codegen(CodegenContext &cc);
+  std::string repr();
+  llvm::Value *codegen(CodegenContext &cc);
 };
 
 struct IfNode : ast {
@@ -143,8 +158,8 @@ struct IfNode : ast {
       : args(std::move(arg)), block(std::move(blk)),
         elseBlock(std::move(elseblk)) {}
 
-  virtual std::string repr();
-  virtual llvm::Value *codegen(CodegenContext &cc);
+  std::string repr();
+  llvm::Value *codegen(CodegenContext &cc);
 };
 
 struct WhileNode : ast {
@@ -155,6 +170,6 @@ struct WhileNode : ast {
             std::unique_ptr<ast> elseblk)
       : args(std::move(arg)), block(std::move(blk)) {}
 
-  virtual std::string repr();
-  virtual llvm::Value *codegen(CodegenContext &cc);
+  std::string repr();
+  llvm::Value *codegen(CodegenContext &cc);
 };

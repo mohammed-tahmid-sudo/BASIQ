@@ -50,21 +50,21 @@ std::string binaryOpTokenTypeToString(BinaryOpTokentype op) {
   }
 }
 
-std::string IntLiteralNode::repr() {
+std::string IntegerNode::repr() {
   return "IntLiteralNode(" + std::to_string(val) + ")";
 }
 
-std::string FloatLiteralNode::repr() {
+std::string FloatNode::repr() {
   return "FloatLiteralNode(" + std::to_string(val) + ")";
 }
 
-std::string StringLiteralNode::repr() {
-  return "StringLiteralNode(\"" + val + "\")";
-}
+std::string StringNode::repr() { return "StringLiteralNode(\"" + val + "\")"; }
 
-std::string BooleanLiteralNode::repr() {
+std::string BooleanNode::repr() {
   return "BooleanLiteralNode(" + std::string(val ? "true" : "false") + ")";
 }
+
+std::string IdentifierNode::repr() { return "Identifier(" + val + ")"; }
 
 std::string BinaryOperationNode::repr() {
   return "BinaryOperationNode(Op=" +

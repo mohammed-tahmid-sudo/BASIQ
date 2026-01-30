@@ -68,6 +68,7 @@ set_target_properties(BASIQ PROPERTIES
 )
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions")
+target_compile_options(BASIQ PRIVATE -fexceptions)
 
 # Custom run target
 add_custom_target(run

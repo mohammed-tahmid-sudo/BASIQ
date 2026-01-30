@@ -1,6 +1,7 @@
-
+#include <ast.h>
 #include <cctype>
 #include <lexer.h>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -404,39 +405,40 @@ const char *tokenName(TokenType t) {
   }
 }
 
-int main() {
-  std::string src = R"(
-@version "1.0";
-@author "Tahmid";
+// int main() {
+//   std::string src = R"(
+// @version "1.0";
+// @author "Tahmid";
 
-let x: Integer = 10; const let y: Float = 3.14;
+// let x: Integer = 10; const let y: Float = 3.14;
 
-func add(a: Integer, b: Integer) -> Integer {
-  return a + b;
-};
+// func add(a: Integer, b: Integer) -> Integer {
+//   return a + b;
+// };
 
-if x >= 5 {
-  print ("ok");
-} else {
-  print ("no");
-};
+// if x >= 5 {
+//   print ("ok");
+// } else {
+//   print ("no");
+// };
 
-for i in 0..10 {
-  print (i);
-};
+// for i in 0..10 {
+//   print (i);
+// };
 
-)";
+// )";
 
-  Lexer lexer(src);
-  auto program = lexer.lexer();
+//   Lexer lexer(src);
+//   auto program = lexer.lexer();
 
-  int stmtNo = 0;
-  for (const auto &stmt : program) {
-    std::cout << "Statement " << stmtNo++ << ":\n";
-    for (const auto &tok : stmt) {
-      std::cout << "  " << std::setw(12) << tokenName(tok.type) << " : '"
-                << tok.value << "'\n";
-    }
-    std::cout << "\n";
-  }
-}
+//   int stmtNo = 0;
+//   for (const auto &stmt : program) {
+//     std::cout << "Statement " << stmtNo++ << ":\n";
+//     for (const auto &tok : stmt) {
+//       std::cout << "  " << std::setw(12) << tokenName(tok.type) << " : '"
+//                 << tok.value << "'\n";
+//     }
+//     std::cout << "\n";
+//   }
+// }
+

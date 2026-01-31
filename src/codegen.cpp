@@ -184,65 +184,7 @@ llvm::Value *AssignmentNode::codegen(CodegenContext &cc) {
 // }
 
 llvm::Value *FunctionNode::codegen(CodegenContext &cc) {
-  llvm::Type *retType = nullptr;
 
-  if (ReturnType == Types::INTEGERTYPE) {
-    retType = llvm::Type::getInt32Ty(*cc.TheContext);
-  } else if (ReturnType == Types::BOOLEANTYPE) {
-    retType = llvm::Type::getInt1Ty(*cc.TheContext);
-  } else if (ReturnType == Types::STRINGTYPE) {
-    retType = llvm::PointerType::get(llvm::Type::getInt8Ty(*cc.TheContext), 0);
-  } else if (ReturnType == Types::FLOATTYPE) {
-    retType = llvm::Type::getFloatTy(*cc.TheContext);
-  } else if (ReturnType == Types::VOIDTYPE) {
-    retType = llvm::Type::getVoidTy(*cc.TheContext);
-  }
-
-  std::vector<llvm::Type *> argTypes;
-  for (auto &arg : args) {
-    argTypes.push_back(arg->codegen(cc)->getType());
-  }
-
-  llvm::FunctionType *funcType =
-      llvm::FunctionType::get(retType, argTypes, false);
-
-  llvm::Function *func = llvm::Function::Create(
-      funcType, llvm::Function::ExternalLinkage, name, cc.Module.get());
-
-  // Name the arguments and store in NamedValues
-  unsigned idx = 0;
-  for (auto &arg : func->args()) {
-    if (idx < args.size()) {
-      arg.setName("arg" +
-                  std::to_string(
-                      idx)); // optional: get name from arg node if it has one
-      cc.NamedValues[arg.getName().str()] = &arg;
-    }
-    ++idx;
-  }
-
-  // Create entry basic block
-  llvm::BasicBlock *BB =
-      llvm::BasicBlock::Create(*cc.TheContext, "entry", func);
-  cc.Builder->SetInsertPoint(BB);
-
-  // Generate body
-  if (contents) {
-    llvm::Value *retVal = contents->codegen(cc);
-    // If function is not void and body doesn't generate a return, add one
-    if (!retType->isVoidTy() && retVal) {
-      cc.Builder->CreateRet(retVal);
-    } else if (retType->isVoidTy()) {
-      cc.Builder->CreateRetVoid();
-    }
-  } else {
-    // No body
-    if (retType->isVoidTy()) {
-      cc.Builder->CreateRetVoid();
-    }
-  }
-
-  return func;
 }
 
 llvm::Value *CompountNode::codegen(CodegenContext &cc) {

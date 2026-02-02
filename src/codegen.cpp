@@ -1,3 +1,4 @@
+#include "lexer.h"
 #include <ast.h>
 #include <iostream>
 #include <llvm-18/llvm/ADT/STLFunctionalExtras.h>
@@ -13,8 +14,32 @@
 #include <llvm/IR/Value.h>
 #include <llvm/Support/raw_ostream.h>
 #include <memory>
+#include <stdexcept>
 
 CodegenContext ctx("MyModule");
+
+llvm::Type *GetType(Types type, llvm::LLVMContext &context) {
+  switch (type) {
+  case (Types::BOOLEANTYPE):
+    return llvm::Type::getInt1Ty(context);
+    break;
+  case (Types::FLOATTYPE):
+    return llvm::Type::getFloatTy(context);
+    break;
+  case (Types::INTEGERTYPE):
+    return llvm::Type::getInt32Ty(context);
+    break;
+  case (Types::STRINGTYPE):
+    return llvm::PointerType::get(llvm::Type::getInt8Ty(context), false);
+    break;
+  case (Types::VOIDTYPE):
+    return llvm::Type::getVoidTy(context);
+    break;
+  default:
+    return nullptr;
+  }
+  return nullptr;
+}
 
 llvm::Value *IntegerNode::codegen(CodegenContext &ctx) {
   return llvm::ConstantInt::get(ctx.Builder->getInt32Ty(), val);
@@ -185,6 +210,17 @@ llvm::Value *AssignmentNode::codegen(CodegenContext &cc) {
 
 llvm::Value *FunctionNode::codegen(CodegenContext &cc) {
 
+  std::vector<llvm::Type *> llvmTypes;
+  for (auto &tok : args) {
+    llvm::Type *val = GetType(tok.second, *cc.TheContext);
+
+    if (!val)
+      throw std::runtime_error("ERROR, UNSUPPORTED DATATYPE");
+  }
+  llvm::Type *RetType = GetType(ReturnType, *cc.TheContext);
+
+  llvm::FunctionType *FT = llvm::FunctionType::get(RetType, llvmTypes, false);
+  
 }
 
 llvm::Value *CompountNode::codegen(CodegenContext &cc) {

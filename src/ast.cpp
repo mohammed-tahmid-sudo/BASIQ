@@ -12,8 +12,6 @@ std::string TypesToString(Types tp) {
     return "Boolean";
   case STRINGTYPE:
     return "String";
-  case IDENTIFIERTYPE:
-    return "Identifier";
   default:
     return "Unknown";
   }

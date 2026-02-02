@@ -8,7 +8,7 @@
 #include <memory>
 #include <vector>
 
-enum Types { INTEGERTYPE, FLOATTYPE, BOOLEANTYPE, STRINGTYPE, IDENTIFIERTYPE, VOIDTYPE };
+enum Types { INTEGERTYPE, FLOATTYPE, BOOLEANTYPE, STRINGTYPE, VOIDTYPE };
 enum BinaryOpTokentype {
   PLUSOP,
   MINUSOP,
@@ -95,7 +95,8 @@ struct BinaryOperationNode : ast {
   std::unique_ptr<ast> right;
   BinaryOpTokentype op;
 
-  BinaryOperationNode(std::unique_ptr<ast> LHS, std::unique_ptr<ast> RHS, BinaryOpTokentype o)
+  BinaryOperationNode(std::unique_ptr<ast> LHS, std::unique_ptr<ast> RHS,
+                      BinaryOpTokentype o)
       : left(std::move(LHS)), right(std::move(RHS)), op(o) {}
 
   std::string repr();
@@ -127,12 +128,12 @@ struct AssignmentNode : ast {
 struct FunctionNode : ast {
   std::string name;
   Types ReturnType;
-  std::vector<std::unique_ptr<ast>> args;
+  std::vector<std::pair<std::string, Types>> args;
   std::unique_ptr<ast> contents;
 
   FunctionNode(std::string nm, std::unique_ptr<ast> cntnt, Types tp,
-               std::vector<std::unique_ptr<ast>> arg)
-      : name(std::move(nm)), ReturnType(tp), args(std::move(arg)),
+               std::vector<std::pair<std::string, Types>> arg)
+      : name(std::move(nm)), ReturnType(tp), args(arg),
         contents(std::move(cntnt)) {}
 
   std::string repr();

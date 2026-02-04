@@ -410,7 +410,8 @@ const char *tokenName(TokenType t) {
 // @version "1.0";
 // @author "Tahmid";
 
-// let x: Integer = 10; const let y: Float = 3.14;
+// let x: Integer = 10;
+// const let y: Float = 3.14;
 
 // func add(a: Integer, b: Integer) -> Integer {
 //   return a + b;
@@ -441,4 +442,3 @@ const char *tokenName(TokenType t) {
 //     std::cout << "\n";
 //   }
 // }
-

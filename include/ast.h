@@ -1,5 +1,6 @@
 #pragma once
 #include "lexer.h"
+#include <algorithm>
 #include <filesystem>
 #include <llvm-18/llvm/IR/IRBuilder.h>
 #include <llvm-18/llvm/IR/LLVMContext.h>
@@ -97,6 +98,19 @@ struct AssignmentNode : ast {
 struct CompoundNode : ast {
   std::vector<std::unique_ptr<ast>> blocks;
   CompoundNode(std::vector<std::unique_ptr<ast>> b) : blocks(std::move(b)) {}
+  std::string repr() override;
+  llvm::Value *codegen(CodegenContext &cc) override;
+};
+
+struct FunctionNode : ast {
+  std::string name;
+  std::unique_ptr<ast> content;
+  TokenType ReturnType;
+
+  FunctionNode(const std::string &s, std::unique_ptr<ast> cntnt,
+               TokenType RetType)
+      : name(s), content(std::move(cntnt)), ReturnType(RetType) {}
+
   std::string repr() override;
   llvm::Value *codegen(CodegenContext &cc) override;
 };

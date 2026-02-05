@@ -1,5 +1,6 @@
 #include <ast.h>
 #include <lexer.h>
+#include <llvm-18/llvm/IR/Function.h>
 #include <string>
 
 std::string IntegerNode::repr() {
@@ -27,9 +28,16 @@ std::string AssignmentNode::repr() {
 
 std::string CompoundNode::repr() {
   std::string output;
+  output = +"[";
   for (auto &block : blocks) {
     std::string val = block->repr();
     output += ", " + val;
   }
+  output = +"]";
   return output;
+}
+
+std::string FunctionNode::repr() {
+  return "FunctionNode(Name=" + name + ", Value=" + content->repr() +
+         "ReturnType=";
 }

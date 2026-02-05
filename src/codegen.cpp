@@ -33,6 +33,29 @@ llvm::Type *GetTypeNonVoid(TokenType type, llvm::LLVMContext &context) {
 
   return nullptr;
 }
+llvm::Type *GetTypeWithVoid(TokenType type, llvm::LLVMContext &context) {
+  switch (type) {
+  case (TokenType::INTEGER):
+    return llvm::Type::getInt32Ty(context);
+    break;
+  case (TokenType::FLOAT):
+    return llvm::Type::getFloatTy(context);
+    break;
+  case (TokenType::STRING):
+    return llvm::PointerType::get(llvm::Type::getInt32Ty(context), false);
+    break;
+  case (TokenType::BOOLEAN):
+    return llvm::Type::getInt1Ty(context);
+    break;
+  case (TokenType::)
+  default:
+    std::cerr << "Invalid Variable Type\n";
+    return nullptr;
+    break;
+  }
+
+  return nullptr;
+}
 
 llvm::Value *IntegerNode::codegen(CodegenContext &cc) {
 
@@ -65,23 +88,22 @@ llvm::Value *VariableDeclareNode::codegen(CodegenContext &cc) {
   return alloca;
 }
 
-llvm::Value* AssignmentNode::codegen(CodegenContext &cc) {
-    llvm::Value* var = cc.lookup(name);
-    if (!var) {
-        llvm::errs() << "Error: variable '" << name << "' not declared!\n";
-        return nullptr;  // prevents cast crash
-    }
+llvm::Value *AssignmentNode::codegen(CodegenContext &cc) {
+  llvm::Value *var = cc.lookup(name);
+  if (!var) {
+    llvm::errs() << "Error: variable '" << name << "' not declared!\n";
+    return nullptr; // prevents cast crash
+  }
 
-    llvm::Value* valueVal = val->codegen(cc);
-    if (!valueVal) {
-        llvm::errs() << "Error: RHS expression returned null!\n";
-        return nullptr;
-    }
+  llvm::Value *valueVal = val->codegen(cc);
+  if (!valueVal) {
+    llvm::errs() << "Error: RHS expression returned null!\n";
+    return nullptr;
+  }
 
-    // Store the value into the existing alloca
-    return cc.Builder->CreateStore(valueVal, var);
+  // Store the value into the existing alloca
+  return cc.Builder->CreateStore(valueVal, var);
 }
-
 
 llvm::Value *CompoundNode::codegen(CodegenContext &cc) {
   llvm::Value *last = nullptr;
@@ -98,8 +120,12 @@ llvm::Value *CompoundNode::codegen(CodegenContext &cc) {
     last = val; // last non-null statement
   }
 
-  cc.popScope(); // exit scope
-  return last;   // may be nullptr if all statements failed
+  // cc.popScope(); // exit scope
+  return last; // may be nullptr if all statements failed
+}
+
+llvm::Value *FunctionNode::codegen(CodegenContext &cc) {
+
 }
 
 int main() {

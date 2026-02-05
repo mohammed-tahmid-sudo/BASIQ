@@ -1,9 +1,12 @@
 #pragma once
+#include "lexer.h"
+#include <filesystem>
 #include <llvm-18/llvm/IR/IRBuilder.h>
 #include <llvm-18/llvm/IR/LLVMContext.h>
 #include <llvm-18/llvm/IR/Value.h>
 #include <memory>
 #include <string>
+#include <vector>
 
 struct CodegenContext {
   std::unique_ptr<llvm::LLVMContext> TheContext;
@@ -72,3 +75,28 @@ struct StringNode : ast {
   llvm::Value *codegen(CodegenContext &cc) override;
 };
 
+struct VariableDeclareNode : ast {
+  std::string name;
+  TokenType Type;
+  std::unique_ptr<ast> val;
+  VariableDeclareNode(const std::string &n, std::unique_ptr<ast> v, TokenType t)
+      : name(n), val(std::move(v)), Type(t) {}
+  std::string repr() override;
+  llvm::Value *codegen(CodegenContext &cc) override;
+};
+
+struct AssignmentNode : ast {
+  std::string name;
+  std::unique_ptr<ast> val;
+  AssignmentNode(const std::string &n, std::unique_ptr<ast> v)
+      : name(n), val(std::move(v)) {}
+  std::string repr() override;
+  llvm::Value *codegen(CodegenContext &cc) override;
+};
+
+struct CompoundNode : ast {
+  std::vector<std::unique_ptr<ast>> blocks;
+  CompoundNode(std::vector<std::unique_ptr<ast>> b) : blocks(std::move(b)) {}
+  std::string repr() override;
+  llvm::Value *codegen(CodegenContext &cc) override;
+};

@@ -1,5 +1,6 @@
 #pragma once
 #include "lexer.h"
+#include <algorithm>
 #include <llvm-18/llvm/IR/IRBuilder.h>
 #include <llvm-18/llvm/IR/LLVMContext.h>
 #include <llvm-18/llvm/IR/Type.h>
@@ -127,6 +128,12 @@ struct AssignmentNode : ast {
   llvm::Value *codegen(CodegenContext &cc) override;
 };
 
+struct ReturnNode : ast {
+  std::unique_ptr<ast> expr;
+  ReturnNode(std::unique_ptr<ast> exp) : expr(std::move(exp)) {}
+  std::string repr() override;
+  llvm::Value *codegen(CodegenContext &cc) override;
+};
 struct CompoundNode : ast {
   std::vector<std::unique_ptr<ast>> blocks;
   CompoundNode(std::vector<std::unique_ptr<ast>> b) : blocks(std::move(b)) {}
@@ -163,6 +170,32 @@ struct WhileNode : ast {
 
   WhileNode(std::unique_ptr<ast> condtn, std::unique_ptr<ast> bdy)
       : condition(std::move(condtn)), body(std::move(bdy)) {}
+  std::string repr() override;
+  llvm::Value *codegen(CodegenContext &cc) override;
+};
+
+struct IfNode : ast {
+  std::unique_ptr<ast> condition;
+  std::unique_ptr<ast> thenBlock;
+  std::unique_ptr<ast> elseBlock;
+
+  IfNode(std::unique_ptr<ast> cond, std::unique_ptr<ast> thenB,
+         std::unique_ptr<ast> elseB)
+      : condition(std::move(cond)), thenBlock(std::move(thenB)),
+        elseBlock(std::move(elseB)) {}
+
+  std::string repr() override;
+  llvm::Value *codegen(CodegenContext &cc) override;
+};
+
+struct BinaryOperationNode : ast {
+  std::unique_ptr<ast> Left;
+  std::unique_ptr<ast> Right;
+  TokenType Type;
+  BinaryOperationNode(TokenType tp, std::unique_ptr<ast> LHS,
+                      std::unique_ptr<ast> RHS)
+      : Type(tp), Left(std::move(LHS)), Right(std::move(RHS)) {}
+
   std::string repr() override;
   llvm::Value *codegen(CodegenContext &cc) override;
 };

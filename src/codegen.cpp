@@ -13,6 +13,7 @@
 #include <llvm-18/llvm/Support/TypeName.h>
 #include <llvm-18/llvm/Support/raw_ostream.h>
 #include <memory>
+#include <stdexcept>
 #include <vector>
 
 llvm::Type *GetTypeNonVoid(TokenType type, llvm::LLVMContext &context) {
@@ -93,46 +94,77 @@ llvm::Value *AssignmentNode::codegen(CodegenContext &cc) {
   return cc.Builder->CreateStore(valueVal, var);
 }
 
+llvm::Value *ReturnNode::codegen(CodegenContext &cc) {
+  if (expr) {
+    llvm::Value *retVal = expr->codegen(cc);
+    return cc.Builder->CreateRet(retVal);
+  } else {
+    return cc.Builder->CreateRetVoid();
+  }
+}
+
+// llvm::Value *CompoundNode::codegen(CodegenContext &cc) {
+//   llvm::Value *last = nullptr;
+
+//   cc.pushScope();
+
+//   for (auto &stmt : blocks) {
+//     if (!stmt)
+//       continue;
+//     llvm::Value *val = stmt->codegen(cc);
+//     if (!val) {
+//       llvm::errs() << "Warning: statement returned null in CompoundNode\n";
+//     }
+//     last = val;
+//   }
+
+//   // cc.popScope();
+//   return last;
+// }
+
 llvm::Value *CompoundNode::codegen(CodegenContext &cc) {
   llvm::Value *last = nullptr;
 
-  cc.pushScope(); // new scope for this block
+  cc.pushScope();
 
   for (auto &stmt : blocks) {
     if (!stmt)
-      continue; // skip null statements
+      continue;
+
     llvm::Value *val = stmt->codegen(cc);
     if (!val) {
       llvm::errs() << "Warning: statement returned null in CompoundNode\n";
+      continue; // skip nulls
     }
-    last = val; // last non-null statement
+
+    last = val;
+
+    // Only check for return if val is not null
+    if (llvm::isa<llvm::ReturnInst>(val)) {
+      break;
+    }
   }
 
-  // cc.popScope(); // exit scope
-  return last; // may be nullptr if all statements failed
+  cc.popScope();
+  return last;
 }
 
 llvm::Value *FunctionNode::codegen(CodegenContext &cc) {
-  // arg types
   std::vector<llvm::Type *> argTypes;
   for (auto &a : args)
     argTypes.push_back(a.second);
 
-  // function type
   llvm::Type *retTy = GetTypeVoid(ReturnType, *cc.TheContext);
   auto *FT = llvm::FunctionType::get(retTy, argTypes, false);
 
-  // function
   auto *Fn = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, name,
                                     cc.Module.get());
 
-  // entry block
   auto *BB = llvm::BasicBlock::Create(*cc.TheContext, "entry", Fn);
   cc.Builder->SetInsertPoint(BB);
 
   cc.pushScope();
 
-  // arguments → allocas
   unsigned i = 0;
   for (auto &arg : Fn->args()) {
     const auto &argName = args[i++].first;
@@ -143,10 +175,8 @@ llvm::Value *FunctionNode::codegen(CodegenContext &cc) {
     cc.addVariable(argName, alloca);
   }
 
-  // body
   llvm::Value *retVal = content->codegen(cc);
 
-  // emit return only if missing
   if (!BB->getTerminator()) {
     if (retTy->isVoidTy()) {
       cc.Builder->CreateRetVoid();
@@ -184,33 +214,26 @@ llvm::Value *WhileNode::codegen(CodegenContext &cc) {
   llvm::Function *F = cc.Builder->GetInsertBlock()->getParent();
   llvm::LLVMContext &Ctx = *cc.TheContext;
 
-  // create all blocks with the function as parent (no manual push_back needed)
   llvm::BasicBlock *condBB = llvm::BasicBlock::Create(Ctx, "while.cond", F);
   llvm::BasicBlock *bodyBB = llvm::BasicBlock::Create(Ctx, "while.body", F);
   llvm::BasicBlock *afterBB = llvm::BasicBlock::Create(Ctx, "while.end", F);
 
-  // jump to condition
   cc.Builder->CreateBr(condBB);
 
-  // --- condition block ---
   cc.Builder->SetInsertPoint(condBB);
   llvm::Value *condVal = condition->codegen(cc);
   if (!condVal)
     return nullptr;
 
-  // If condition is not already i1, compare against zero to produce i1.
   if (!condVal->getType()->isIntegerTy(1)) {
-    // handle vector/scalar integers (assumes integer scalar type)
     condVal = cc.Builder->CreateICmpNE(
         condVal, llvm::ConstantInt::get(condVal->getType(), 0),
         "while.cond.to.i1");
   }
   cc.Builder->CreateCondBr(condVal, bodyBB, afterBB);
 
-  // --- body block ---
   cc.Builder->SetInsertPoint(bodyBB);
 
-  // save/restore break & continue targets (if your context tracks them)
   llvm::BasicBlock *oldBreak = cc.BreakBB;
   llvm::BasicBlock *oldCont = cc.ContinueBB;
   cc.BreakBB = afterBB;
@@ -222,20 +245,95 @@ llvm::Value *WhileNode::codegen(CodegenContext &cc) {
     return nullptr;
   }
 
-  // restore break/continue
   cc.BreakBB = oldBreak;
   cc.ContinueBB = oldCont;
 
-  // if body didn't terminate (no return/branch), jump back to cond
   if (!cc.Builder->GetInsertBlock()->getTerminator())
     cc.Builder->CreateBr(condBB);
 
-  // --- after loop ---
   cc.Builder->SetInsertPoint(afterBB);
-
-  // while as a statement: return an arbitrary zero value (adapt to your Node
-  // API)
   return llvm::Constant::getNullValue(llvm::Type::getInt32Ty(Ctx));
+}
+
+llvm::Value *IfNode::codegen(CodegenContext &cc) {
+  llvm::Value *condV = condition->codegen(cc);
+  if (!condV)
+    return nullptr;
+
+  // bool conversion
+  condV = cc.Builder->CreateICmpNE(
+      condV, llvm::ConstantInt::get(condV->getType(), 0), "ifcond");
+
+  llvm::Function *func = cc.Builder->GetInsertBlock()->getParent();
+
+  // create blocks
+  llvm::BasicBlock *thenBB =
+      llvm::BasicBlock::Create(*cc.TheContext, "then", func);
+  llvm::BasicBlock *elseBB = nullptr;
+  if (elseBlock)
+    elseBB = llvm::BasicBlock::Create(*cc.TheContext, "else", func);
+
+  llvm::BasicBlock *mergeBB =
+      llvm::BasicBlock::Create(*cc.TheContext, "ifcont", func);
+
+  // conditional branch
+  if (elseBB)
+    cc.Builder->CreateCondBr(condV, thenBB, elseBB);
+  else
+    cc.Builder->CreateCondBr(condV, thenBB, mergeBB);
+
+  // then
+  cc.Builder->SetInsertPoint(thenBB);
+  cc.pushScope();
+  thenBlock->codegen(cc);
+  cc.popScope();
+  cc.Builder->CreateBr(mergeBB);
+  thenBB = cc.Builder->GetInsertBlock();
+
+  // else (if present)
+  if (elseBB) {
+    cc.Builder->SetInsertPoint(elseBB);
+    cc.pushScope();
+    elseBlock->codegen(cc);
+    cc.popScope();
+    cc.Builder->CreateBr(mergeBB);
+    elseBB = cc.Builder->GetInsertBlock();
+  }
+
+  // merge
+  cc.Builder->SetInsertPoint(mergeBB);
+  return nullptr;
+}
+
+llvm::Value *BinaryOperationNode::codegen(CodegenContext &cc) {
+  llvm::Value *LHS = Left->codegen(cc);
+  llvm::Value *RHS = Right->codegen(cc);
+
+  if (!LHS || !RHS) {
+    throw std::runtime_error("LEFT OF RIGHT VALUE IS A NULL!!!!\n");
+    return nullptr;
+  }
+
+  switch (Type) {
+  case TokenType::PLUS:
+    return cc.Builder->CreateAdd(LHS, RHS, "addtmp");
+    break;
+  case TokenType::MINUS:
+    return cc.Builder->CreateSub(LHS, RHS, "subtmp");
+    break;
+  case TokenType::STAR:
+    return cc.Builder->CreateMul(LHS, RHS, "multmp");
+    break;
+  case TokenType::SLASH:
+    return cc.Builder->CreateSDiv(LHS, RHS, "divtmp");
+    break;
+    // NOTE: Add other Comparison nodes Later
+
+  default:
+    std::cerr << "Unknows Operator";
+    return nullptr;
+    break;
+  }
 }
 
 int main() {
@@ -253,13 +351,20 @@ int main() {
       std::make_unique<VariableReferenceNode>("val2"),
       std::make_unique<AssignmentNode>("val1",
                                        std::make_unique<IntegerNode>(21))));
+  vals.push_back(std::make_unique<IfNode>(
+      std::make_unique<VariableReferenceNode>("val2"),
+      std::make_unique<IntegerNode>(21), std::make_unique<IntegerNode>(32)));
+  vals.push_back(
+      std::make_unique<ReturnNode>(std::make_unique<BinaryOperationNode>(
+          TokenType::PLUS, std::make_unique<VariableReferenceNode>("val1"),
+          std::make_unique<VariableReferenceNode>("val2"))));
 
   auto Compound = std::make_unique<CompoundNode>(std::move(vals));
 
   std::vector<std::pair<std::string, llvm::Type *>> type;
 
   auto Function = std::make_unique<FunctionNode>(
-      "main", type, std::move(Compound), TokenType::VOID);
+      "main", type, std::move(Compound), TokenType::INTEGER);
 
   Function->codegen(ctx);
 

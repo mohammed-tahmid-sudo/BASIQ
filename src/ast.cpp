@@ -49,3 +49,15 @@ std::string WhileNode::repr() {
   return "WhileNode(Condition=" + condition->repr() + ", Body=" + body->repr() +
          ")";
 }
+
+std::string IfNode::repr() {
+  return "IfNode(Condition=" + condition->repr() +
+         ", ThenBlock=" + thenBlock->repr() +
+         ", EndBlock=" + elseBlock->repr() + ")";
+}
+std::string ReturnNode::repr() { return "ReturnNode(" + expr->repr() + ")"; }
+
+std::string BinaryOperationNode::repr() {
+  return "BinaryOperationNode(Op=, Left=" + Left->repr() +
+         "Right=" + Right->repr() + ")";
+}

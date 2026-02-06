@@ -53,6 +53,7 @@ std::vector<std::vector<Token>> Lexer::lexer() {
       {"float", FLOAT},
       {"boolean", BOOLEAN},
       {"string", STRING},
+      {"void", VOID},
       // logical words
       {"and", AND},
       {"or", OR}};
@@ -400,6 +401,8 @@ const char *tokenName(TokenType t) {
     return "RANGE";
   case EOF_TOKEN:
     return "EOF";
+  case VOID:
+    return "Void";
   default:
     return "UNKNOWN";
   }
@@ -413,7 +416,7 @@ const char *tokenName(TokenType t) {
 // let x: Integer = 10;
 // const let y: Float = 3.14;
 
-// func add(a: Integer, b: Integer) -> Integer {
+// func add(a: Integer, b: Integer) -> void {
 //   return a + b;
 // };
 

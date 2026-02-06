@@ -41,3 +41,11 @@ std::string FunctionNode::repr() {
   return "FunctionNode(Name=" + name + ", Value=" + content->repr() +
          "ReturnType=";
 }
+std::string VariableReferenceNode::repr() {
+  return "VariableReferenceNode(" + Name + ")";
+}
+
+std::string WhileNode::repr() {
+  return "WhileNode(Condition=" + condition->repr() + ", Body=" + body->repr() +
+         ")";
+}

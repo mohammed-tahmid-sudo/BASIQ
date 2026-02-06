@@ -1,9 +1,8 @@
 #pragma once
 #include "lexer.h"
-#include <algorithm>
-#include <filesystem>
 #include <llvm-18/llvm/IR/IRBuilder.h>
 #include <llvm-18/llvm/IR/LLVMContext.h>
+#include <llvm-18/llvm/IR/Type.h>
 #include <llvm-18/llvm/IR/Value.h>
 #include <memory>
 #include <string>
@@ -15,25 +14,24 @@ struct CodegenContext {
   std::unique_ptr<llvm::Module> Module;
   std::vector<std::unordered_map<std::string, llvm::Value *>> NamedValuesStack;
 
-  // Enter a new scope
-  void pushScope() { NamedValuesStack.push_back({}); }
+  llvm::BasicBlock *BreakBB = nullptr;
+  llvm::BasicBlock *ContinueBB = nullptr;
 
-  // Exit current scope
+  // Scopes
+  void pushScope() { NamedValuesStack.push_back({}); }
   void popScope() { NamedValuesStack.pop_back(); }
 
-  // Add a variable to the current scope
   void addVariable(const std::string &name, llvm::Value *value) {
     NamedValuesStack.back()[name] = value;
   }
 
-  // Lookup variable (from innermost to outermost scope)
   llvm::Value *lookup(const std::string &name) {
     for (auto it = NamedValuesStack.rbegin(); it != NamedValuesStack.rend();
          ++it) {
       if (it->count(name))
         return (*it)[name];
     }
-    return nullptr; // not found
+    return nullptr;
   }
 
   CodegenContext(const std::string &name)
@@ -41,6 +39,40 @@ struct CodegenContext {
         Builder(std::make_unique<llvm::IRBuilder<>>(*TheContext)),
         Module(std::make_unique<llvm::Module>(name, *TheContext)) {}
 };
+
+// struct CodegenContext {
+//   std::unique_ptr<llvm::LLVMContext> TheContext;
+//   std::unique_ptr<llvm::IRBuilder<>> Builder;
+//   std::unique_ptr<llvm::Module> Module;
+//   std::vector<std::unordered_map<std::string, llvm::Value *>>
+//   NamedValuesStack;
+
+//   // Enter a new scope
+//   void pushScope() { NamedValuesStack.push_back({}); }
+
+//   // Exit current scope
+//   void popScope() { NamedValuesStack.pop_back(); }
+
+//   // Add a variable to the current scope
+//   void addVariable(const std::string &name, llvm::Value *value) {
+//     NamedValuesStack.back()[name] = value;
+//   }
+
+//   // Lookup variable (from innermost to outermost scope)
+//   llvm::Value *lookup(const std::string &name) {
+//     for (auto it = NamedValuesStack.rbegin(); it != NamedValuesStack.rend();
+//          ++it) {
+//       if (it->count(name))
+//         return (*it)[name];
+//     }
+//     return nullptr; // not found
+//   }
+
+//   CodegenContext(const std::string &name)
+//       : TheContext(std::make_unique<llvm::LLVMContext>()),
+//         Builder(std::make_unique<llvm::IRBuilder<>>(*TheContext)),
+//         Module(std::make_unique<llvm::Module>(name, *TheContext)) {}
+// };
 
 struct ast {
   virtual ~ast() = default;
@@ -104,13 +136,33 @@ struct CompoundNode : ast {
 
 struct FunctionNode : ast {
   std::string name;
+  std::vector<std::pair<std::string, llvm::Type *>> args;
   std::unique_ptr<ast> content;
   TokenType ReturnType;
 
-  FunctionNode(const std::string &s, std::unique_ptr<ast> cntnt,
-               TokenType RetType)
-      : name(s), content(std::move(cntnt)), ReturnType(RetType) {}
+  FunctionNode(const std::string &s,
+               std::vector<std::pair<std::string, llvm::Type *>> ars,
+               std::unique_ptr<ast> cntnt, TokenType RetType)
+      : name(s), args(ars), content(std::move(cntnt)), ReturnType(RetType) {}
 
+  std::string repr() override;
+  llvm::Value *codegen(CodegenContext &cc) override;
+};
+
+struct VariableReferenceNode : ast {
+  std::string Name;
+
+  VariableReferenceNode(const std::string &s) : Name(s) {}
+  std::string repr() override;
+  llvm::Value *codegen(CodegenContext &cc) override;
+};
+
+struct WhileNode : ast {
+  std::unique_ptr<ast> condition;
+  std::unique_ptr<ast> body;
+
+  WhileNode(std::unique_ptr<ast> condtn, std::unique_ptr<ast> bdy)
+      : condition(std::move(condtn)), body(std::move(bdy)) {}
   std::string repr() override;
   llvm::Value *codegen(CodegenContext &cc) override;
 };

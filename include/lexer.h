@@ -26,6 +26,7 @@ enum TokenType {
   FLOAT,
   BOOLEAN,
   STRING,
+  VOID, 
   IDENTIFIER,
   // Literals
   INT_LITERAL,

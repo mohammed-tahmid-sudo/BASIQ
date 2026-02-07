@@ -1,5 +1,7 @@
 #pragma once
 #include "lexer.h"
+#include <ast.h>
+#include <memory>
 #include <vector>
 
 class Parser {
@@ -40,5 +42,5 @@ public:
     return current;
   }
 
-
+  std::vector<std::unique_ptr<ast>> Parse();
 };

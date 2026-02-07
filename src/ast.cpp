@@ -64,3 +64,5 @@ std::string BinaryOperationNode::repr() {
 
 std::string BreakNode::repr() { return "BreakNode(NOARGS)"; }
 std::string ContinueNode::repr() { return "ContinueNode(NOARGS)"; }
+
+std::string CallNode::repr() { return "CallNode(Name=" + name + ", contents"; }

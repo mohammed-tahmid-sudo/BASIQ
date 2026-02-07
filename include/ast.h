@@ -208,3 +208,12 @@ struct ContinueNode : ast {
   std::string repr() override;
   llvm::Value *codegen(CodegenContext &cc) override;
 };
+struct CallNode : ast {
+  std::string name;
+  std::vector<std::unique_ptr<ast>> args;
+
+  CallNode(const std::string &s, std::vector<std::unique_ptr<ast>> arg)
+      : name(s), args(std::move(arg)) {}
+  std::string repr() override;
+  llvm::Value *codegen(CodegenContext &cc) override;
+};

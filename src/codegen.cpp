@@ -377,6 +377,25 @@ llvm::Value *BreakNode::codegen(CodegenContext &cc) {
   return cc.Builder->CreateBr(cc.BreakBB);
 }
 
+llvm::Value *CallNode::codegen(CodegenContext &cc) {
+  llvm::Function *callee = cc.Module->getFunction(name);
+  if (!callee)
+    return nullptr;
+
+  if (callee->arg_size() != args.size())
+    return nullptr;
+
+  std::vector<llvm::Value *> argVals;
+  for (auto &arg : args) {
+    llvm::Value *v = arg->codegen(cc);
+    if (!v)
+      return nullptr;
+    argVals.push_back(v);
+  }
+
+  return cc.Builder->CreateCall(callee, argVals);
+}
+
 llvm::Value *ContinueNode::codegen(CodegenContext &cc) {
 
   if (!cc.BreakBB) {
@@ -390,10 +409,8 @@ int main() {
   CodegenContext ctx("myprogram");
   ctx.pushScope(); // Start Global Scope
 
+  // --- First compound for "random" function ---
   std::vector<std::unique_ptr<ast>> vals;
-
-  vals.push_back(std::make_unique<VariableDeclareNode>(
-      "val1", std::make_unique<IntegerNode>(21), TokenType::INTEGER));
 
   vals.push_back(std::make_unique<VariableDeclareNode>(
       "val2", std::make_unique<VariableReferenceNode>("val1"),
@@ -412,16 +429,38 @@ int main() {
           TokenType::GTE, std::make_unique<VariableReferenceNode>("val1"),
           std::make_unique<VariableReferenceNode>("val2"))));
 
-  auto Compound = std::make_unique<CompoundNode>(std::move(vals));
+  auto compoundRandom = std::make_unique<CompoundNode>(std::move(vals));
 
-  std::vector<std::pair<std::string, llvm::Type *>> type;
+  std::vector<std::pair<std::string, llvm::Type *>> typeRandom = {
+      {"val1", llvm::Type::getInt32Ty(*ctx.TheContext)}};
+
+  auto RandomFunction = std::make_unique<FunctionNode>(
+      "random", typeRandom, std::move(compoundRandom), TokenType::BOOLEAN);
+
+  // --- Second compound for "main" function ---
+  std::vector<std::unique_ptr<ast>> anothervals;
+
+  anothervals.push_back(std::make_unique<VariableDeclareNode>(
+      "val1", std::make_unique<IntegerNode>(21), TokenType::INTEGER));
+
+  // Prepare arguments vector separately to move unique_ptrs
+  std::vector<std::unique_ptr<ast>> callArgs;
+  callArgs.push_back(std::make_unique<VariableReferenceNode>("val1"));
+
+  anothervals.push_back(
+      std::make_unique<CallNode>("random", std::move(callArgs)));
+
+  auto anotherCompound = std::make_unique<CompoundNode>(std::move(anothervals));
 
   auto Function = std::make_unique<FunctionNode>(
-      "main", type, std::move(Compound), TokenType::BOOLEAN);
+      "main", typeRandom, std::move(anotherCompound), TokenType::INTEGER);
 
+  // --- Codegen ---
+  RandomFunction->codegen(ctx);
   Function->codegen(ctx);
 
   ctx.Module->print(llvm::errs(), nullptr);
+
   ctx.popScope(); // End Global Scope
   return 0;
 }

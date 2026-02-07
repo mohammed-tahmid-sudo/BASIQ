@@ -61,3 +61,6 @@ std::string BinaryOperationNode::repr() {
   return "BinaryOperationNode(Op=, Left=" + Left->repr() +
          "Right=" + Right->repr() + ")";
 }
+
+std::string BreakNode::repr() { return "BreakNode(NOARGS)"; }
+std::string ContinueNode::repr() { return "ContinueNode(NOARGS)"; }

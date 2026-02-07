@@ -1,6 +1,5 @@
 #pragma once
 #include "lexer.h"
-#include <algorithm>
 #include <llvm-18/llvm/IR/IRBuilder.h>
 #include <llvm-18/llvm/IR/LLVMContext.h>
 #include <llvm-18/llvm/IR/Type.h>
@@ -196,6 +195,16 @@ struct BinaryOperationNode : ast {
                       std::unique_ptr<ast> RHS)
       : Type(tp), Left(std::move(LHS)), Right(std::move(RHS)) {}
 
+  std::string repr() override;
+  llvm::Value *codegen(CodegenContext &cc) override;
+};
+
+struct BreakNode : ast {
+  std::string repr() override;
+  llvm::Value *codegen(CodegenContext &cc) override;
+};
+
+struct ContinueNode : ast {
   std::string repr() override;
   llvm::Value *codegen(CodegenContext &cc) override;
 };

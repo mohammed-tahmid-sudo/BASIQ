@@ -309,31 +309,81 @@ llvm::Value *BinaryOperationNode::codegen(CodegenContext &cc) {
   llvm::Value *LHS = Left->codegen(cc);
   llvm::Value *RHS = Right->codegen(cc);
 
-  if (!LHS || !RHS) {
-    throw std::runtime_error("LEFT OF RIGHT VALUE IS A NULL!!!!\n");
-    return nullptr;
-  }
+  if (!LHS || !RHS)
+    throw std::runtime_error("null operand in binary operation");
+
+  // force both operands to i32
+  auto *i32 = llvm::Type::getInt32Ty(*cc.TheContext);
+
+  if (LHS->getType()->isIntegerTy(1))
+    LHS = cc.Builder->CreateIntCast(LHS, i32, true);
+
+  if (RHS->getType()->isIntegerTy(1))
+    RHS = cc.Builder->CreateIntCast(RHS, i32, true);
 
   switch (Type) {
   case TokenType::PLUS:
     return cc.Builder->CreateAdd(LHS, RHS, "addtmp");
-    break;
+
   case TokenType::MINUS:
     return cc.Builder->CreateSub(LHS, RHS, "subtmp");
-    break;
+
   case TokenType::STAR:
     return cc.Builder->CreateMul(LHS, RHS, "multmp");
-    break;
+
   case TokenType::SLASH:
     return cc.Builder->CreateSDiv(LHS, RHS, "divtmp");
-    break;
-    // NOTE: Add other Comparison nodes Later
+
+  case TokenType::LT: {
+    auto *cmp = cc.Builder->CreateICmpSLT(LHS, RHS, "lttmp");
+    return cc.Builder->CreateIntCast(cmp, i32, true);
+  }
+
+  case TokenType::LTE: {
+    auto *cmp = cc.Builder->CreateICmpSLE(LHS, RHS, "letmp");
+    return cc.Builder->CreateIntCast(cmp, i32, true);
+  }
+
+  case TokenType::GT: {
+    auto *cmp = cc.Builder->CreateICmpSGT(LHS, RHS, "gttmp");
+    return cc.Builder->CreateIntCast(cmp, i32, true);
+  }
+
+  case TokenType::GTE: {
+    auto *cmp = cc.Builder->CreateICmpSGE(LHS, RHS, "getmp");
+    return cc.Builder->CreateIntCast(cmp, i32, true);
+  }
+
+  case TokenType::EQEQ: {
+    auto *cmp = cc.Builder->CreateICmpEQ(LHS, RHS, "eqtmp");
+    return cc.Builder->CreateIntCast(cmp, i32, true);
+  }
+
+  case TokenType::NOTEQ: {
+    auto *cmp = cc.Builder->CreateICmpNE(LHS, RHS, "netmp");
+    return cc.Builder->CreateIntCast(cmp, i32, true);
+  }
 
   default:
-    std::cerr << "Unknows Operator";
-    return nullptr;
-    break;
+    throw std::runtime_error("unknown binary operator");
   }
+}
+
+llvm::Value *BreakNode::codegen(CodegenContext &cc) {
+  if (!cc.BreakBB) {
+    std::cerr << "Error: 'break' not inside a loop.\n";
+    return nullptr;
+  }
+  return cc.Builder->CreateBr(cc.BreakBB);
+}
+
+llvm::Value *ContinueNode::codegen(CodegenContext &cc) {
+
+  if (!cc.BreakBB) {
+    std::cerr << "Error: 'break' not inside a loop.\n";
+    return nullptr;
+  }
+  return cc.Builder->CreateBr(cc.ContinueBB);
 }
 
 int main() {
@@ -344,19 +394,22 @@ int main() {
 
   vals.push_back(std::make_unique<VariableDeclareNode>(
       "val1", std::make_unique<IntegerNode>(21), TokenType::INTEGER));
+
   vals.push_back(std::make_unique<VariableDeclareNode>(
       "val2", std::make_unique<VariableReferenceNode>("val1"),
       TokenType::INTEGER));
+
   vals.push_back(std::make_unique<WhileNode>(
       std::make_unique<VariableReferenceNode>("val2"),
-      std::make_unique<AssignmentNode>("val1",
-                                       std::make_unique<IntegerNode>(21))));
+      std::make_unique<ContinueNode>()));
+
   vals.push_back(std::make_unique<IfNode>(
       std::make_unique<VariableReferenceNode>("val2"),
       std::make_unique<IntegerNode>(21), std::make_unique<IntegerNode>(32)));
+
   vals.push_back(
       std::make_unique<ReturnNode>(std::make_unique<BinaryOperationNode>(
-          TokenType::PLUS, std::make_unique<VariableReferenceNode>("val1"),
+          TokenType::GTE, std::make_unique<VariableReferenceNode>("val1"),
           std::make_unique<VariableReferenceNode>("val2"))));
 
   auto Compound = std::make_unique<CompoundNode>(std::move(vals));
@@ -364,7 +417,7 @@ int main() {
   std::vector<std::pair<std::string, llvm::Type *>> type;
 
   auto Function = std::make_unique<FunctionNode>(
-      "main", type, std::move(Compound), TokenType::INTEGER);
+      "main", type, std::move(Compound), TokenType::BOOLEAN);
 
   Function->codegen(ctx);
 

@@ -405,62 +405,62 @@ llvm::Value *ContinueNode::codegen(CodegenContext &cc) {
   return cc.Builder->CreateBr(cc.ContinueBB);
 }
 
-int main() {
-  CodegenContext ctx("myprogram");
-  ctx.pushScope(); // Start Global Scope
+// int main() {
+//   CodegenContext ctx("myprogram");
+//   ctx.pushScope(); // Start Global Scope
 
-  // --- First compound for "random" function ---
-  std::vector<std::unique_ptr<ast>> vals;
+//   // --- First compound for "random" function ---
+//   std::vector<std::unique_ptr<ast>> vals;
 
-  vals.push_back(std::make_unique<VariableDeclareNode>(
-      "val2", std::make_unique<VariableReferenceNode>("val1"),
-      TokenType::INTEGER));
+//   vals.push_back(std::make_unique<VariableDeclareNode>(
+//       "val2", std::make_unique<VariableReferenceNode>("val1"),
+//       TokenType::INTEGER));
 
-  vals.push_back(std::make_unique<WhileNode>(
-      std::make_unique<VariableReferenceNode>("val2"),
-      std::make_unique<ContinueNode>()));
+//   vals.push_back(std::make_unique<WhileNode>(
+//       std::make_unique<VariableReferenceNode>("val2"),
+//       std::make_unique<ContinueNode>()));
 
-  vals.push_back(std::make_unique<IfNode>(
-      std::make_unique<VariableReferenceNode>("val2"),
-      std::make_unique<IntegerNode>(21), std::make_unique<IntegerNode>(32)));
+//   vals.push_back(std::make_unique<IfNode>(
+//       std::make_unique<VariableReferenceNode>("val2"),
+//       std::make_unique<IntegerNode>(21), std::make_unique<IntegerNode>(32)));
 
-  vals.push_back(
-      std::make_unique<ReturnNode>(std::make_unique<BinaryOperationNode>(
-          TokenType::GTE, std::make_unique<VariableReferenceNode>("val1"),
-          std::make_unique<VariableReferenceNode>("val2"))));
+//   vals.push_back(
+//       std::make_unique<ReturnNode>(std::make_unique<BinaryOperationNode>(
+//           TokenType::GTE, std::make_unique<VariableReferenceNode>("val1"),
+//           std::make_unique<VariableReferenceNode>("val2"))));
 
-  auto compoundRandom = std::make_unique<CompoundNode>(std::move(vals));
+//   auto compoundRandom = std::make_unique<CompoundNode>(std::move(vals));
 
-  std::vector<std::pair<std::string, llvm::Type *>> typeRandom = {
-      {"val1", llvm::Type::getInt32Ty(*ctx.TheContext)}};
+//   std::vector<std::pair<std::string, llvm::Type *>> typeRandom = {
+//       {"val1", llvm::Type::getInt32Ty(*ctx.TheContext)}};
 
-  auto RandomFunction = std::make_unique<FunctionNode>(
-      "random", typeRandom, std::move(compoundRandom), TokenType::BOOLEAN);
+//   auto RandomFunction = std::make_unique<FunctionNode>(
+//       "random", typeRandom, std::move(compoundRandom), TokenType::BOOLEAN);
 
-  // --- Second compound for "main" function ---
-  std::vector<std::unique_ptr<ast>> anothervals;
+//   // --- Second compound for "main" function ---
+//   std::vector<std::unique_ptr<ast>> anothervals;
 
-  anothervals.push_back(std::make_unique<VariableDeclareNode>(
-      "val1", std::make_unique<IntegerNode>(21), TokenType::INTEGER));
+//   anothervals.push_back(std::make_unique<VariableDeclareNode>(
+//       "val1", std::make_unique<IntegerNode>(21), TokenType::INTEGER));
 
-  // Prepare arguments vector separately to move unique_ptrs
-  std::vector<std::unique_ptr<ast>> callArgs;
-  callArgs.push_back(std::make_unique<VariableReferenceNode>("val1"));
+//   // Prepare arguments vector separately to move unique_ptrs
+//   std::vector<std::unique_ptr<ast>> callArgs;
+//   callArgs.push_back(std::make_unique<VariableReferenceNode>("val1"));
 
-  anothervals.push_back(
-      std::make_unique<CallNode>("random", std::move(callArgs)));
+//   anothervals.push_back(
+//       std::make_unique<CallNode>("random", std::move(callArgs)));
 
-  auto anotherCompound = std::make_unique<CompoundNode>(std::move(anothervals));
+//   auto anotherCompound = std::make_unique<CompoundNode>(std::move(anothervals));
 
-  auto Function = std::make_unique<FunctionNode>(
-      "main", typeRandom, std::move(anotherCompound), TokenType::INTEGER);
+//   auto Function = std::make_unique<FunctionNode>(
+//       "main", typeRandom, std::move(anotherCompound), TokenType::INTEGER);
 
-  // --- Codegen ---
-  RandomFunction->codegen(ctx);
-  Function->codegen(ctx);
+//   // --- Codegen ---
+//   RandomFunction->codegen(ctx);
+//   Function->codegen(ctx);
 
-  ctx.Module->print(llvm::errs(), nullptr);
+//   ctx.Module->print(llvm::errs(), nullptr);
 
-  ctx.popScope(); // End Global Scope
-  return 0;
-}
+//   ctx.popScope(); // End Global Scope
+//   return 0;
+// }

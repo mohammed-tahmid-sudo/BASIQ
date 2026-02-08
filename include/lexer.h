@@ -21,13 +21,14 @@ enum TokenType {
   PRINT,
   TRUE,
   FALSE,
-  // Types
+  Types,
   INTEGER,
   FLOAT,
   BOOLEAN,
   STRING,
   VOID, 
   IDENTIFIER,
+
   // Literals
   INT_LITERAL,
   FLOAT_LITERAL,

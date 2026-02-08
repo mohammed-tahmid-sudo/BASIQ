@@ -1,7 +1,6 @@
 #include <ast.h>
 #include <cctype>
 #include <lexer.h>
-#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -26,37 +25,34 @@ std::vector<std::vector<Token>> Lexer::lexer() {
   std::vector<Token> cur;
 
   auto flush_statement = [&]() {
-    if (!cur.empty()) {
-      output.push_back(cur);
-      cur.clear();
-    } else {
-      // still push empty statement if you want; currently skip empties
-    }
+    // Always append EOF token at the end of statement, even if empty
+    cur.push_back({EOF_TOKEN, ""});
+    output.push_back(cur);
+    cur.clear();
   };
 
   // keyword / type maps (lowercase -> TokenType)
-  std::unordered_map<std::string, TokenType> kw{
-      {"let", LET},
-      {"func", FUNC},
-      {"return", RETURN},
-      {"if", IF},
-      {"else", ELSE},
-      {"for", FOR},
-      {"in", IN},
-      {"while", WHILE},
-      {"class", CLASS},
-      {"print", PRINT},
-      {"true", TRUE},
-      {"false", FALSE},
-      // types (support both lowercase and capitalized from grammar)
-      {"integer", INTEGER},
-      {"float", FLOAT},
-      {"boolean", BOOLEAN},
-      {"string", STRING},
-      {"void", VOID},
-      // logical words
-      {"and", AND},
-      {"or", OR}};
+  std::unordered_map<std::string, TokenType> kw{{"let", LET},
+                                                {"func", FUNC},
+                                                {"return", RETURN},
+                                                {"if", IF},
+                                                {"else", ELSE},
+                                                {"for", FOR},
+                                                {"in", IN},
+                                                {"while", WHILE},
+                                                {"class", CLASS},
+                                                {"print", PRINT},
+                                                {"true", TRUE},
+                                                {"false", FALSE},
+                                                // types
+                                                {"integer", INTEGER},
+                                                {"float", FLOAT},
+                                                {"boolean", BOOLEAN},
+                                                {"string", STRING},
+                                                {"void", VOID},
+                                                // logical words
+                                                {"and", AND},
+                                                {"or", OR}};
 
   while (Peek() != 0) {
     skipWhiwSpace();
@@ -64,7 +60,7 @@ std::vector<std::vector<Token>> Lexer::lexer() {
     if (c == 0)
       break;
 
-    // semicolon ends a statement (do not emit semicolon token)
+    // semicolon ends a statement
     if (c == ';') {
       Consume();
       flush_statement();
@@ -74,7 +70,6 @@ std::vector<std::vector<Token>> Lexer::lexer() {
     // header start '@'
     if (c == '@') {
       Consume(); // skip '@'
-      // read identifier
       std::string id;
       while (std::isalpha(static_cast<unsigned char>(Peek()))) {
         id.push_back(Peek());
@@ -90,13 +85,13 @@ std::vector<std::vector<Token>> Lexer::lexer() {
       else if (idl == "syscall")
         cur.push_back({SYSCALL, id});
       else
-        cur.push_back({IDENTIFIER, id}); // unknown header -> identifier
+        cur.push_back({IDENTIFIER, id});
       continue;
     }
 
     // strings
     if (c == '"') {
-      Consume(); // skip opening "
+      Consume();
       std::string val;
       while (Peek() != 0 && Peek() != '"') {
         if (Peek() == '\\') {
@@ -123,23 +118,22 @@ std::vector<std::vector<Token>> Lexer::lexer() {
         }
       }
       if (Peek() == '"')
-        Consume(); // skip closing "
+        Consume();
       cur.push_back({STRING_LITERAL, val});
       continue;
     }
 
-    // numbers (int or float)
+    // numbers
     if (std::isdigit(static_cast<unsigned char>(c))) {
       std::string num;
       while (std::isdigit(static_cast<unsigned char>(Peek()))) {
         num.push_back(Peek());
         Consume();
       }
-      // fractional part
       if (Peek() == '.' &&
           std::isdigit(static_cast<unsigned char>(PeekNext()))) {
         num.push_back(Peek());
-        Consume(); // consume '.'
+        Consume();
         while (std::isdigit(static_cast<unsigned char>(Peek()))) {
           num.push_back(Peek());
           Consume();
@@ -151,7 +145,7 @@ std::vector<std::vector<Token>> Lexer::lexer() {
       continue;
     }
 
-    // identifier or keyword (starts with letter)
+    // identifiers / keywords
     if (std::isalpha(static_cast<unsigned char>(c))) {
       std::string id;
       while (std::isalnum(static_cast<unsigned char>(Peek())) ||
@@ -161,17 +155,15 @@ std::vector<std::vector<Token>> Lexer::lexer() {
       }
       std::string idl = toLower(id);
       auto it = kw.find(idl);
-      if (it != kw.end()) {
+      if (it != kw.end())
         cur.push_back({it->second, id});
-      } else {
+      else
         cur.push_back({IDENTIFIER, id});
-      }
       continue;
     }
 
-    // two-char operators first
+    // two-char operators
     char n = PeekNext();
-    // '==' '!=' '<=' '>=' '..' '->' '&&' '||'
     if (c == '=' && n == '=') {
       Consume();
       Consume();
@@ -207,8 +199,7 @@ std::vector<std::vector<Token>> Lexer::lexer() {
       Consume();
       cur.push_back({DOT, "->"});
       continue;
-    } // grammar uses "->" for return type. reuse DOT token? user didn't include
-      // ARROW; use DOT token with value "->"
+    }
     if (c == '&' && n == '&') {
       Consume();
       Consume();
@@ -281,29 +272,18 @@ std::vector<std::vector<Token>> Lexer::lexer() {
       Consume();
       break;
     default:
-      // unknown single char -> treat as identifier char fallback or skip
-      {
-        std::string s(1, c);
-        cur.push_back({IDENTIFIER, s});
-        Consume();
-      }
+      cur.push_back({IDENTIFIER, std::string(1, c)});
+      Consume();
       break;
     }
   } // while
 
-  // push final statement if any tokens remain
+  // flush last statement if any tokens remain
   if (!cur.empty())
-    output.push_back(cur);
-
-  // Optionally append EOF token as its own statement
-  std::vector<Token> eofVec;
-  eofVec.push_back({EOF_TOKEN, ""});
-  output.push_back(eofVec);
+    flush_statement();
 
   return output;
 }
-#include <iomanip>
-#include <iostream>
 
 // assume lexer code is included above
 
@@ -407,41 +387,3 @@ const char *tokenName(TokenType t) {
     return "UNKNOWN";
   }
 }
-
-// int main() {
-//   std::string src = R"(
-// @version "1.0";
-// @author "Tahmid";
-
-// let x: Integer = 10;
-// const let y: Float = 3.14;
-
-// func add(a: Integer, b: Integer) -> void {
-//   return a + b;
-// };
-
-// if x >= 5 {
-//   print ("ok");
-// } else {
-//   print ("no");
-// };
-
-// for i in 0..10 {
-//   print (i);
-// };
-
-// )";
-
-//   Lexer lexer(src);
-//   auto program = lexer.lexer();
-
-//   int stmtNo = 0;
-//   for (const auto &stmt : program) {
-//     std::cout << "Statement " << stmtNo++ << ":\n";
-//     for (const auto &tok : stmt) {
-//       std::cout << "  " << std::setw(12) << tokenName(tok.type) << " : '"
-//                 << tok.value << "'\n";
-//     }
-//     std::cout << "\n";
-//   }
-// }

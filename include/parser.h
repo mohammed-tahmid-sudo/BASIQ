@@ -15,11 +15,11 @@ public:
 
   Token Peek() const;
   Token Consume();
+  Token Expect(TokenType expected);
 
   std::unique_ptr<ast> ParseExpression();
 
-
-  std::unique_ptr<VariableDeclareNode> ParserVeriable();
+  std::unique_ptr<VariableDeclareNode> ParserVariable();
   std::unique_ptr<ast> ParseStatements();
 
   std::vector<std::unique_ptr<ast>> Parse();

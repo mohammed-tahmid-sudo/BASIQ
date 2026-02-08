@@ -1,6 +1,5 @@
 #pragma once
 #include "lexer.h"
-#include <algorithm>
 #include <ast.h>
 #include <memory>
 #include <vector>

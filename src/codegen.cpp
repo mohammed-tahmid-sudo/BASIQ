@@ -51,10 +51,12 @@ llvm::Value *IntegerNode::codegen(CodegenContext &cc) {
   return llvm::ConstantInt::get(llvm::Type::getInt32Ty(*cc.TheContext), val,
                                 true);
 }
+
 llvm::Value *FloatNode::codegen(CodegenContext &cc) {
 
   return llvm::ConstantFP::get(llvm::Type::getFloatTy(*cc.TheContext), val);
 }
+
 llvm::Value *BooleanNode::codegen(CodegenContext &cc) {
   return llvm::ConstantInt::get(llvm::Type::getInt1Ty(*cc.TheContext), val,
                                 true);
@@ -450,7 +452,8 @@ llvm::Value *ContinueNode::codegen(CodegenContext &cc) {
 //   anothervals.push_back(
 //       std::make_unique<CallNode>("random", std::move(callArgs)));
 
-//   auto anotherCompound = std::make_unique<CompoundNode>(std::move(anothervals));
+//   auto anotherCompound =
+//   std::make_unique<CompoundNode>(std::move(anothervals));
 
 //   auto Function = std::make_unique<FunctionNode>(
 //       "main", typeRandom, std::move(anotherCompound), TokenType::INTEGER);

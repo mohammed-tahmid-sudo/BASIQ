@@ -16,10 +16,13 @@ public:
   Token Consume();
   Token Expect(TokenType expected);
 
+  std::unique_ptr<IntegerNode> ParseIntegers();
   std::unique_ptr<ast> ParseExpression();
 
   std::unique_ptr<VariableDeclareNode> ParserVariable();
+  std::unique_ptr<FunctionNode> parseFunction();
   std::unique_ptr<ast> ParseStatements();
+
 
   std::vector<std::unique_ptr<ast>> Parse();
 };

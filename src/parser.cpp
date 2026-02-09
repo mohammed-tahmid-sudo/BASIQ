@@ -1,4 +1,5 @@
 #include "lexer.h"
+#include <algorithm>
 #include <ast.h>
 #include <colors.h>
 #include <iomanip>
@@ -9,6 +10,7 @@
 #include <memory>
 #include <parser.h>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 Token Parser::Peek() const {
@@ -24,6 +26,14 @@ Token Parser::Peek() const {
 
 Token Parser::Consume() {
   if (x >= code.size()) {
+    return Token{TokenType::EOF_TOKEN, ""};
+  }
+
+  // If we've run past the tokens in the current statement,
+  // advance to the next statement and return EOF_TOKEN.
+  if (y >= code[x].size()) {
+    x++;
+    y = 0;
     return Token{TokenType::EOF_TOKEN, ""};
   }
 
@@ -46,65 +56,67 @@ Token Parser::Expect(TokenType expected) {
   return Consume();
 }
 
+
+std::unique_ptr<ast> Parser::ParseExpression() {
+  // if (auto v = ParseIntegers()) {
+  //   return v;
+  // } else {
+  //   return nullptr;
+  // }
+  return nullptr;
+}
+
 std::unique_ptr<VariableDeclareNode> Parser::ParserVariable() {
   Expect(TokenType::LET);
   Token val = Expect(TokenType::IDENTIFIER);
   std::string name = val.value;
   Expect(TokenType::COLON);
 
-  TokenType Type;
-  TokenType peekType = Peek().type;
-  if (peekType == TokenType::INTEGER || peekType == TokenType::FLOAT ||
-      peekType == TokenType::BOOLEAN || peekType == TokenType::STRING) {
-    Type = peekType;
-    Consume();
-  } else {
-    std::cerr << Colors::BOLD << Colors::RED << "ERROR:" << Colors::RESET
-              << "Invalid type\n";
-    return nullptr;
-  }
+  Token Type = Expect(TokenType::Types);
 
   std::unique_ptr<ast> args;
 
-  // optional initialization
   if (Peek().type == TokenType::EQ) {
     Consume();
     args = ParseExpression();
   }
 
-  // **expect statement EOF token** (added by lexer)
-  Expect(TokenType::EOF_TOKEN);
-
-  // DO NOT consume again — Expect already advanced
-  // Consume(); <-- remove this
+  // Expect(TokenType::EOF_TOKEN);
 
   return std::make_unique<VariableDeclareNode>(name, std::move(args), Type);
 }
 
-std::unique_ptr<ast> Parser::ParseExpression() {
-  if (auto v = ParserVariable()) {
+std::unique_ptr<ast> Parser::ParseStatements() {
+  if (Peek().type == TokenType::LET) {
+    auto v = ParserVariable();
     return v;
   } else {
     return nullptr;
   }
 }
 
-
-
 std::vector<std::unique_ptr<ast>> Parser::Parse() {
   std::vector<std::unique_ptr<ast>> nodes;
 
   while (true) {
     Token tok = Peek();
-    if (tok.type == TokenType::EOF_TOKEN) {
-      break; // Stop when we reach the end of all code
+    if (tok.type == TokenType::EOF_TOKEN)
+      break;
+
+    std::unique_ptr<ast> node;
+
+    // First try parsing an expression
+    node = ParseExpression();
+
+    // If that fails, try parsing a statement
+    if (!node && tok.type == TokenType::LET) {
+      node = ParseStatements();
     }
 
-    std::unique_ptr<ast> node = ParseExpression();
     if (node) {
       nodes.push_back(std::move(node));
     } else {
-      // Skip token if parsing failed, to avoid infinite loop
+      // If token is completely unrecognized, just consume it
       Consume();
     }
   }
@@ -137,7 +149,14 @@ int main() {
   // )";
 
   std::string src = R"(
-  let x:Integer;
+  let a: Integer = 1212;
+  32434;
+  343434;
+  32434;
+  32434;
+  32434;
+  32434;
+  32434;
   )";
   Lexer lexer(src);
   auto program = lexer.lexer();

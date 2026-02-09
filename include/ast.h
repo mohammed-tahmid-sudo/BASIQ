@@ -110,9 +110,9 @@ struct StringNode : ast {
 
 struct VariableDeclareNode : ast {
   std::string name;
-  TokenType Type;
+  Token Type;
   std::unique_ptr<ast> val;
-  VariableDeclareNode(const std::string &n, std::unique_ptr<ast> v, TokenType t)
+  VariableDeclareNode(const std::string &n, std::unique_ptr<ast> v, Token t)
       : name(n), val(std::move(v)), Type(t) {}
   std::string repr() override;
   llvm::Value *codegen(CodegenContext &cc) override;
@@ -144,11 +144,11 @@ struct FunctionNode : ast {
   std::string name;
   std::vector<std::pair<std::string, llvm::Type *>> args;
   std::unique_ptr<ast> content;
-  TokenType ReturnType;
+  Token ReturnType;
 
   FunctionNode(const std::string &s,
                std::vector<std::pair<std::string, llvm::Type *>> ars,
-               std::unique_ptr<ast> cntnt, TokenType RetType)
+               std::unique_ptr<ast> cntnt, Token RetType)
       : name(s), args(ars), content(std::move(cntnt)), ReturnType(RetType) {}
 
   std::string repr() override;

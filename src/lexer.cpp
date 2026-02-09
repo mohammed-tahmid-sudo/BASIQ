@@ -1,4 +1,7 @@
 #include <ast.h>
+#include <iomanip>
+#include <colors.h>
+#include <iostream>
 #include <cctype>
 #include <lexer.h>
 #include <string>
@@ -45,12 +48,20 @@ std::vector<std::vector<Token>> Lexer::lexer() {
                                                 {"true", TRUE},
                                                 {"false", FALSE},
                                                 // types
-                                                {"integer", INTEGER},
-                                                {"float", FLOAT},
-                                                {"boolean", BOOLEAN},
-                                                {"string", STRING},
-                                                {"void", VOID},
-                                                // logical words
+                                                // {"integer", INTEGER},
+                                                // {"float", FLOAT},
+                                                // {"boolean", BOOLEAN},
+                                                // {"string", STRING},
+                                                // {"void", VOID},
+
+
+                                                {"integer", Types},
+                                                {"float", Types},
+                                                {"boolean", Types},
+                                                {"string", Types},
+                                                {"void", Types},
+                                                
+												// logical words
                                                 {"and", AND},
                                                 {"or", OR}};
 
@@ -383,7 +394,62 @@ const char *tokenName(TokenType t) {
     return "EOF";
   case VOID:
     return "Void";
+  case Types: 
+	return "Types";
   default:
     return "UNKNOWN";
   }
 }
+
+
+// int main() {
+//   // std::string src = R"(
+//   // @version "1.0";
+//   // @author "Tahmid";
+
+//   // let x: Integer = 10;
+//   // const let y: Float = 3.14;
+
+//   // func add(a: Integer, b: Integer) -> void {
+//   // return a + b;
+//   // };
+
+//   // if x >= 5 {
+//   // print ("ok");
+//   // } else {
+//   // print ("no");
+//   // };
+
+//   // for i in 0..10 {
+//   // print (i);
+//   // };
+
+//   // )";
+
+//   std::string src = R"(
+//   let x:Integer;
+//   )";
+//   Lexer lexer(src);
+//   auto program = lexer.lexer();
+
+//   int stmtNo = 0;
+//   for (const auto &stmt : program) {
+//     std::cout << "Statement " << stmtNo++ << ":\n";
+//     for (const auto &tok : stmt) {
+//       std::cout << "  " << std::setw(12) << tokenName(tok.type) << " : '"
+//                 << tok.value << "'\n";
+//     }
+//     std::cout << "\n";
+//   }
+//   std::cout
+//       << Colors::RED
+//       << "----------------------------------------------------------------"
+//       << Colors::RESET << std::endl;
+
+//   // Parser parse(program);
+//   // auto output = parse.Parse();
+
+//   // for (auto &tok : output) {
+//   //   std::cout << tok->repr() << std::endl;
+//   // }
+// }

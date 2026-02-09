@@ -16,31 +16,30 @@
 #include <stdexcept>
 #include <vector>
 
-llvm::Type *GetTypeNonVoid(TokenType type, llvm::LLVMContext &context) {
-  switch (type) {
-  case (TokenType::INTEGER):
+llvm::Type *GetTypeNonVoid(Token type, llvm::LLVMContext &context) {
+  if (type.value == tokenName(TokenType::INTEGER)) {
     return llvm::Type::getInt32Ty(context);
-    break;
-  case (TokenType::FLOAT):
+
+  } else if (type.value == tokenName(TokenType::FLOAT)) {
     return llvm::Type::getFloatTy(context);
-    break;
-  case (TokenType::STRING):
-    return llvm::PointerType::get(llvm::Type::getInt32Ty(context), false);
-    break;
-  case (TokenType::BOOLEAN):
+
+  } else if (type.value == tokenName(TokenType::STRING)) {
+    return llvm::PointerType::get(llvm::Type::getInt8Ty(context), false);
+
+  } else if (type.value == tokenName(TokenType::BOOLEAN)) {
     return llvm::Type::getInt1Ty(context);
-    break;
-  default:
-    std::cerr << "Invalid Variable Type\n";
+
+  } else {
+    std::cerr << "INVALID TYPE " << tokenName(type.type) << " : " << type.value
+              << "\n";
     return nullptr;
-    break;
   }
 
   return nullptr;
 }
 
-llvm::Type *GetTypeVoid(TokenType type, llvm::LLVMContext &context) {
-  if (type == TokenType::VOID)
+llvm::Type *GetTypeVoid(Token type, llvm::LLVMContext &context) {
+  if (type.value == tokenName(TokenType::VOID))
     return llvm::Type::getVoidTy(context);
 
   return GetTypeNonVoid(type, context);
@@ -416,7 +415,7 @@ llvm::Value *ContinueNode::codegen(CodegenContext &cc) {
 
 //   vals.push_back(std::make_unique<VariableDeclareNode>(
 //       "val2", std::make_unique<VariableReferenceNode>("val1"),
-//       TokenType::INTEGER));
+//       Token{TokenType::Types, "INTEGER"}));
 
 //   vals.push_back(std::make_unique<WhileNode>(
 //       std::make_unique<VariableReferenceNode>("val2"),
@@ -437,13 +436,15 @@ llvm::Value *ContinueNode::codegen(CodegenContext &cc) {
 //       {"val1", llvm::Type::getInt32Ty(*ctx.TheContext)}};
 
 //   auto RandomFunction = std::make_unique<FunctionNode>(
-//       "random", typeRandom, std::move(compoundRandom), TokenType::BOOLEAN);
+//       "random", typeRandom, std::move(compoundRandom),
+//       Token{TokenType::Types, "INTEGER"});
 
 //   // --- Second compound for "main" function ---
 //   std::vector<std::unique_ptr<ast>> anothervals;
 
 //   anothervals.push_back(std::make_unique<VariableDeclareNode>(
-//       "val1", std::make_unique<IntegerNode>(21), TokenType::INTEGER));
+//       "val1", std::make_unique<IntegerNode>(21),
+//       Token{TokenType::Types, "INTEGER"}));
 
 //   // Prepare arguments vector separately to move unique_ptrs
 //   std::vector<std::unique_ptr<ast>> callArgs;
@@ -452,13 +453,14 @@ llvm::Value *ContinueNode::codegen(CodegenContext &cc) {
 //   anothervals.push_back(
 //       std::make_unique<CallNode>("random", std::move(callArgs)));
 
-//   auto anotherCompound =
-//   std::make_unique<CompoundNode>(std::move(anothervals));
+//   auto anotherCompound = std::make_unique<CompoundNode>(std::move(anothervals));
 
 //   auto Function = std::make_unique<FunctionNode>(
-//       "main", typeRandom, std::move(anotherCompound), TokenType::INTEGER);
+//       "main", typeRandom, std::move(anotherCompound),
+//       Token{TokenType::Types, "INTEGER"});
 
 //   // --- Codegen ---
+
 //   RandomFunction->codegen(ctx);
 //   Function->codegen(ctx);
 

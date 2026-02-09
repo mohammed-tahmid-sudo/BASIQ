@@ -1,5 +1,6 @@
 #pragma once
 #include "lexer.h"
+#include <iostream>
 #include <llvm-18/llvm/IR/IRBuilder.h>
 #include <llvm-18/llvm/IR/LLVMContext.h>
 #include <llvm-18/llvm/IR/Type.h>
@@ -73,6 +74,10 @@ struct CodegenContext {
 //         Builder(std::make_unique<llvm::IRBuilder<>>(*TheContext)),
 //         Module(std::make_unique<llvm::Module>(name, *TheContext)) {}
 // };
+
+llvm::Type *GetTypeNonVoid(Token type, llvm::LLVMContext &context);
+
+llvm::Type *GetTypeVoid(Token type, llvm::LLVMContext &context);
 
 struct ast {
   virtual ~ast() = default;

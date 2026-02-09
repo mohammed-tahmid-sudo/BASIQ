@@ -1,6 +1,7 @@
 #include <ast.h>
 #include <lexer.h>
 #include <llvm-18/llvm/IR/Function.h>
+#include <sstream>
 #include <string>
 
 std::string IntegerNode::repr() {
@@ -39,8 +40,8 @@ std::string CompoundNode::repr() {
 }
 
 std::string FunctionNode::repr() {
-  return "FunctionNode(Name=" + name + ", Value=" + content->repr() +
-         "ReturnType=";
+  return "FunctionNode(Name=" + name + ", Value=[" + content->repr() +
+         "], ReturnType=" + ReturnType.value;
 }
 std::string VariableReferenceNode::repr() {
   return "VariableReferenceNode(" + Name + ")";
@@ -59,8 +60,10 @@ std::string IfNode::repr() {
 std::string ReturnNode::repr() { return "ReturnNode(" + expr->repr() + ")"; }
 
 std::string BinaryOperationNode::repr() {
-  return "BinaryOperationNode(Op=, Left=" + Left->repr() +
-         "Right=" + Right->repr() + ")";
+  std::ostringstream oss;
+  oss << "BinaryOperationNode(Op=" << tokenName(Type)
+      << ", Left=" << Left->repr() << ", Right=" << Right->repr() << ")";
+  return oss.str();
 }
 
 std::string BreakNode::repr() { return "BreakNode(NOARGS)"; }

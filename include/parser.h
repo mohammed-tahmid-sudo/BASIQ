@@ -24,6 +24,7 @@ public:
 
   std::unique_ptr<VariableDeclareNode> ParserVariable();
   std::unique_ptr<FunctionNode> parseFunction();
+  std::unique_ptr<CompoundNode> parseCompound();
   std::unique_ptr<ast> ParseStatements();
 
   std::vector<std::unique_ptr<ast>> Parse();

@@ -1,4 +1,5 @@
 #include "lexer.h"
+#include <algorithm>
 #include <ast.h>
 #include <codegen.h>
 #include <colors.h>

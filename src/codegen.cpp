@@ -18,44 +18,36 @@
 #include <vector>
 
 llvm::Type *GetTypeNonVoid(Token type, llvm::LLVMContext &context) {
-  // if ( == tokenName(TokenType::INTEGER)) {
-  //   return llvm::Type::getInt32Ty(context);
-
-  // } else if (type.value == tokenName(TokenType::FLOAT)) {
-  //   return llvm::Type::getFloatTy(context);
-
-  // } else if (type.value == tokenName(TokenType::STRING)) {
-  //   return llvm::PointerType::get(llvm::Type::getInt8Ty(context), false);
-
-  // } else if (type.value == tokenName(TokenType::BOOLEAN)) {
-  //   return llvm::Type::getInt1Ty(context);
-
-  // } else {
-  //   std::cerr << "INVALID TYPE " << tokenName(type.type) << " : " <<
-  //   type.value
-  //             << "\n";
-  //   return nullptr;
-  // }
-
-  // return nullptr;
   for (char &c : type.value)
     c = toupper(c);
 
-  if (type.value == tokenName(TokenType::INTEGER)) {
+  // if (type.value == tokenName(TokenType::INTEGER)) {
+  //   return llvm::Type::getInt32Ty(context);
+  // } else if (type.value == tokenName(TokenType::FLOAT)) {
+  //   return llvm::Type::getFloatTy(context);
+  // } else if (type.value == tokenName(TokenType::STRING)) {
+  //   return llvm::PointerType::get(llvm::Type::getInt8Ty(context), false);
+  // } else if (type.value == tokenName(TokenType::BOOLEAN)) {
+  //   return llvm::Type::getInt1Ty(context);
+  // }
+
+  if (type.value == "INTEGER") {
     return llvm::Type::getInt32Ty(context);
-  } else if (type.value == tokenName(TokenType::FLOAT)) {
+  } else if (type.value == "FLOAT") {
     return llvm::Type::getFloatTy(context);
-  } else if (type.value == tokenName(TokenType::STRING)) {
+  } else if (type.value == "STRING") {
     return llvm::PointerType::get(llvm::Type::getInt8Ty(context), false);
-  } else if (type.value == tokenName(TokenType::BOOLEAN)) {
+  } else if (type.value == "BOOLEAN") {
     return llvm::Type::getInt1Ty(context);
   }
-
   return nullptr;
 }
 
 llvm::Type *GetTypeVoid(Token type, llvm::LLVMContext &context) {
-  if (type.value == tokenName(TokenType::VOID))
+  for (char &c : type.value)
+    c = toupper(c);
+
+  if (type.value == "VOID")
     return llvm::Type::getVoidTy(context);
 
   return GetTypeNonVoid(type, context);

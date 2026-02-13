@@ -37,7 +37,7 @@ expr            ::= literal
                   | func_call
                   | "(" expr ")"
 
-binary_op       ::= "+" | "-" | "*" | "/" | "==" | "!=" | "<" | ">" | "<=" | ">=" | "and" | "or"
+binary_op       ::= "+" | "-" | "*" | "/" | "==" | "!=" | "<" | ">" | "<=" | ">=" | "&&" | "||"
 
 literal         ::= integer_literal
                   | float_literal
@@ -55,8 +55,11 @@ arg_list        ::= expr { "," expr }
 if_stmt         ::= "if" expr "{" { statement ";" } "}" [ "else" "{" { statement ";" } "}" ]
 
 // Loops
-for_stmt        ::= "for" identifier "in" range "{" { statement ";" } "}"
-range           ::= expr ".." expr
+for_stmt ::= "for" "(" (var_decl | assignment) ";"
+                         expr ";"
+                         assignment ")"
+              "{" { statement ";" } "}"
+
 
 while_stmt      ::= "while" expr "{" { statement ";" } "}"
 

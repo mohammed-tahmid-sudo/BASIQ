@@ -1,5 +1,6 @@
 #include "lexer.h"
 #include <ast.h>
+#include <cctype>
 #include <iostream>
 #include <llvm-18/llvm/IR/BasicBlock.h>
 #include <llvm-18/llvm/IR/Constants.h>
@@ -17,22 +18,37 @@
 #include <vector>
 
 llvm::Type *GetTypeNonVoid(Token type, llvm::LLVMContext &context) {
+  // if ( == tokenName(TokenType::INTEGER)) {
+  //   return llvm::Type::getInt32Ty(context);
+
+  // } else if (type.value == tokenName(TokenType::FLOAT)) {
+  //   return llvm::Type::getFloatTy(context);
+
+  // } else if (type.value == tokenName(TokenType::STRING)) {
+  //   return llvm::PointerType::get(llvm::Type::getInt8Ty(context), false);
+
+  // } else if (type.value == tokenName(TokenType::BOOLEAN)) {
+  //   return llvm::Type::getInt1Ty(context);
+
+  // } else {
+  //   std::cerr << "INVALID TYPE " << tokenName(type.type) << " : " <<
+  //   type.value
+  //             << "\n";
+  //   return nullptr;
+  // }
+
+  // return nullptr;
+  for (char &c : type.value)
+    c = toupper(c);
+
   if (type.value == tokenName(TokenType::INTEGER)) {
     return llvm::Type::getInt32Ty(context);
-
   } else if (type.value == tokenName(TokenType::FLOAT)) {
     return llvm::Type::getFloatTy(context);
-
   } else if (type.value == tokenName(TokenType::STRING)) {
     return llvm::PointerType::get(llvm::Type::getInt8Ty(context), false);
-
   } else if (type.value == tokenName(TokenType::BOOLEAN)) {
     return llvm::Type::getInt1Ty(context);
-
-  } else {
-    std::cerr << "INVALID TYPE " << tokenName(type.type) << " : " << type.value
-              << "\n";
-    return nullptr;
   }
 
   return nullptr;
@@ -453,7 +469,8 @@ llvm::Value *ContinueNode::codegen(CodegenContext &cc) {
 //   anothervals.push_back(
 //       std::make_unique<CallNode>("random", std::move(callArgs)));
 
-//   auto anotherCompound = std::make_unique<CompoundNode>(std::move(anothervals));
+//   auto anotherCompound =
+//   std::make_unique<CompoundNode>(std::move(anothervals));
 
 //   auto Function = std::make_unique<FunctionNode>(
 //       "main", typeRandom, std::move(anotherCompound),

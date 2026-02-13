@@ -29,15 +29,30 @@ std::string AssignmentNode::repr() {
 }
 
 std::string CompoundNode::repr() {
-  std::string output;
-  output = +"[";
+  std::string output = "[";
+
+  bool first = true;
   for (auto &block : blocks) {
-    std::string val = block->repr();
-    output += ", " + val;
+    if (!first)
+      output += ", ";
+    output += block->repr();
+    first = false;
   }
-  output = +"]";
+
+  output += "]";
   return output;
 }
+
+// std::string CompoundNode::repr() {
+//   std::string output;
+//   output = +"[";
+//   for (auto &block : blocks) {
+//     std::string val = block->repr();
+//     output += ", " + val;
+//   }
+//   output = +"]";
+//   return output;
+// }
 
 std::string FunctionNode::repr() {
   return "FunctionNode(Name=" + name + ", Value=[" + content->repr() +

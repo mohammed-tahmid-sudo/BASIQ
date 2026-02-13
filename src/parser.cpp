@@ -1,5 +1,4 @@
 #include "lexer.h"
-#include <algorithm>
 #include <ast.h>
 #include <codegen.h>
 #include <colors.h>
@@ -56,6 +55,7 @@ Token Parser::Expect(TokenType expected) {
   if (tok.type != expected) {
 
     throw std::runtime_error("Expected " + std::string(tokenName(expected)));
+
   }
   return Consume();
 }
@@ -91,6 +91,32 @@ std::unique_ptr<ast> Parser::ParseFactor() {
       throw std::runtime_error("Expected ')'");
     Consume();
     return val;
+  } else if (Peek().type == TokenType::IDENTIFIER) {
+    std::string val = Peek().value;
+    Consume();
+    // inside ParseFactor, replace the call-handling block with:
+    if (Peek().type == TokenType::LPAREN) {
+      Consume(); // consume '('
+      std::vector<std::unique_ptr<ast>> inputs;
+
+      if (Peek().type != TokenType::RPAREN) {
+        std::cout << "COMMING HERE" << std::endl;
+        while (true) {
+          inputs.push_back(ParseExpression());
+          if (Peek().type == TokenType::COMMA) {
+            Consume(); // consume comma and continue
+          } else {
+            break;
+          }
+        }
+      }
+
+      Expect(TokenType::RPAREN); // require ')'
+      // DO NOT expect a semicolon here — caller handles that.
+      return std::make_unique<CallNode>(val, std::move(inputs));
+    }
+
+    return std::make_unique<VariableReferenceNode>(val);
   } else {
     return nullptr;
   }
@@ -134,7 +160,7 @@ std::unique_ptr<VariableDeclareNode> Parser::ParserVariable() {
     args = ParseExpression();
   }
 
-  // Expect(TokenType::EOF_TOKEN);
+  Expect(TokenType::SEMICOLON);
 
   return std::make_unique<VariableDeclareNode>(name, std::move(args), Type);
 }
@@ -160,21 +186,107 @@ std::unique_ptr<FunctionNode> Parser::parseFunction() {
   Token type = Expect(TokenType::Types);
 
   std::unique_ptr<ast> node = ParseStatements();
-  if (!node) {
+  if (!node)
     node = ParseExpression();
-  }
+
   return std::make_unique<FunctionNode>(v.value, args, std::move(node), type);
 }
 
-std::unique_ptr<ast> Parser::ParseStatements() {
-  if (Peek().type == TokenType::LET) {
-    auto v = ParserVariable();
-    return v;
-  } else if (Peek().type == TokenType::FUNC) {
-    auto v = parseFunction();
-    return v;
-  } else {
+std::unique_ptr<CompoundNode> Parser::ParseCompound() {
+  Expect(TokenType::LBRACE);
+
+  std::vector<std::unique_ptr<ast>> vals;
+  while (Peek().type != TokenType::RBRACE) {
+    std::unique_ptr<ast> val = ParseStatements();
+    if (!val) {
+      Consume();
+	  break;
+    }
+
+    vals.push_back(std::move(val));
+    // Consume();
+    // std::cout << tokenName(Peek().type) << std::endl;
+  }
+  Consume();
+
+  return std::make_unique<CompoundNode>(std::move(vals));
+}
+std::unique_ptr<IfNode> Parser::ParseIfElse() {
+  Expect(TokenType::IF);
+  Expect(TokenType::LPAREN);
+  std::unique_ptr<ast> args = ParseExpression();
+  Expect(TokenType::RPAREN);
+  std::unique_ptr<ast> block = ParseStatements();
+  if (!block) {
+    block = ParseExpression();
+  }
+  Expect(TokenType::ELSE);
+  std::unique_ptr<ast> Elseblock = ParseStatements();
+  if (!Elseblock)
+    Elseblock = ParseExpression();
+
+  return std::make_unique<IfNode>(std::move(args), std::move(block),
+                                  std::move(Elseblock));
+}
+std::unique_ptr<ReturnNode> Parser::ParseReturn() {
+  Expect(TokenType::RETURN);
+  std::unique_ptr<ast> val = ParseExpression();
+
+  return std::make_unique<ReturnNode>(std::move(val));
+}
+
+std::unique_ptr<AssignmentNode> Parser::ParseAssinment() {
+  auto name = Expect(TokenType::IDENTIFIER);
+  if (Peek().type == TokenType::LPAREN) {
     return nullptr;
+  }
+  Expect(TokenType::EQ);
+  auto val = ParseExpression();
+  Expect(TokenType::SEMICOLON);
+
+  return std::make_unique<AssignmentNode>(name.value, std::move(val));
+}
+
+// std::unique_ptr<CallNode> Parser::ParseCall() {
+//   Token name = Expect(TokenType::IDENTIFIER);
+//   Expect(TokenType::LPAREN);
+//   std::vector<std::unique_ptr<ast>> inputs;
+//   while (Peek().type == TokenType::RPAREN) {
+//     std::unique_ptr<ast> input = ParseExpression();
+//     Expect(TokenType::COMMA);
+//   }
+//   Consume();
+//   Expect(TokenType::SEMICOLON);
+
+//   return std::make_unique<CallNode>(name.value, std::move(inputs));
+// }
+
+std::unique_ptr<ast> Parser::ParseStatements() {
+  // std::cout << tokenName(Peek().type) << std::endl;
+  if (Peek().type == TokenType::LET) {
+    return ParserVariable();
+
+  } else if (Peek().type == TokenType::FUNC) {
+    return parseFunction();
+
+  } else if (Peek().type == TokenType::LBRACE) {
+    return ParseCompound();
+
+  } else if (Peek().type == TokenType::IF) {
+    return ParseIfElse();
+
+  } else if (Peek().type == TokenType::RETURN) {
+    return ParseReturn();
+
+  } else if (Peek().type == TokenType::IDENTIFIER) {
+    // std::unique_ptr<ast> v = ParseAssinment();
+    // if (!v) {
+    //   v = ParseCall();
+    // }
+    return ParseAssinment();
+
+  } else {
+    return ParseExpression();
   }
 }
 
@@ -189,7 +301,7 @@ std::vector<std::unique_ptr<ast>> Parser::Parse() {
     std::unique_ptr<ast> node = ParseStatements();
 
     if (!node) {
-      ParseExpression();
+      node = ParseExpression();
     }
 
     if (node) {
@@ -227,7 +339,22 @@ int main() {
   // )";
 
   std::string src = R"(
-	func add() -> void 1 + 1;
+  func add(a:Integer) -> Integer {
+	if (a + 1) {
+		a = 21;
+		return a; 
+	} else {
+		a = 31; 
+		return a;  
+	}
+	return a; 
+  }
+
+  func main() -> Integer {
+	let a:Integer = 32; 
+
+	return add(a); 
+  }
   )";
   Lexer lexer(src);
   auto program = lexer.lexer();
@@ -249,7 +376,13 @@ int main() {
   Parser parse(program, "MyProgram");
   auto output = parse.Parse();
 
+  // for (auto &tok : output) {
+  //   std::cout << tok->repr() << std::endl;
+  // }
+  CodegenContext cc("my_program");
   for (auto &tok : output) {
-    std::cout << tok->repr() << std::endl;
+    tok->codegen(cc);
   }
+
+  cc.Module->print(llvm::outs(), nullptr);
 }

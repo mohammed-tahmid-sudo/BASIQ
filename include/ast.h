@@ -1,6 +1,5 @@
 #pragma once
 #include "lexer.h"
-#include <iostream>
 #include <llvm-18/llvm/IR/IRBuilder.h>
 #include <llvm-18/llvm/IR/LLVMContext.h>
 #include <llvm-18/llvm/IR/Type.h>

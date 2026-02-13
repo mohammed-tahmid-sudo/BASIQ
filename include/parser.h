@@ -20,11 +20,17 @@ public:
 
   std::unique_ptr<ast> ParseFactor();
   std::unique_ptr<ast> ParseTerm();
+
   std::unique_ptr<ast> ParseExpression();
 
   std::unique_ptr<VariableDeclareNode> ParserVariable();
   std::unique_ptr<FunctionNode> parseFunction();
-  std::unique_ptr<CompoundNode> parseCompound();
+  std::unique_ptr<CompoundNode> ParseCompound();
+  std::unique_ptr<IfNode> ParseIfElse();
+  std::unique_ptr<ReturnNode> ParseReturn(); 
+  std::unique_ptr<AssignmentNode> ParseAssinment();
+  std::unique_ptr<CallNode> ParseCall(); 
+
   std::unique_ptr<ast> ParseStatements();
 
   std::vector<std::unique_ptr<ast>> Parse();

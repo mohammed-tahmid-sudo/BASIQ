@@ -1,8 +1,9 @@
 #include <ast.h>
-#include <iomanip>
-#include <colors.h>
-#include <iostream>
 #include <cctype>
+#include <colors.h>
+#include <cstdio>
+#include <iomanip>
+#include <iostream>
 #include <lexer.h>
 #include <string>
 #include <unordered_map>
@@ -54,15 +55,15 @@ std::vector<std::vector<Token>> Lexer::lexer() {
                                                 // {"string", STRING},
                                                 // {"void", VOID},
 
-
                                                 {"integer", Types},
                                                 {"float", Types},
                                                 {"boolean", Types},
                                                 {"string", Types},
                                                 {"void", Types},
-                                                
-												// logical words
+
+                                                // logical words
                                                 {"and", AND},
+                                                {";", SEMICOLON},
                                                 {"or", OR}};
 
   while (Peek() != 0) {
@@ -74,6 +75,7 @@ std::vector<std::vector<Token>> Lexer::lexer() {
     // semicolon ends a statement
     if (c == ';') {
       Consume();
+      cur.push_back({SEMICOLON, ";"});
       flush_statement();
       continue;
     }
@@ -394,13 +396,14 @@ const char *tokenName(TokenType t) {
     return "EOF";
   case VOID:
     return "Void";
-  case Types: 
-	return "Types";
+  case Types:
+    return "Types";
+  case SEMICOLON:
+    return "SEMICOLON";
   default:
     return "UNKNOWN";
   }
 }
-
 
 // int main() {
 //   // std::string src = R"(

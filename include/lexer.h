@@ -58,6 +58,7 @@ enum TokenType {
   COMMA,
   DOT,
   RANGE,
+  SEMICOLON,
   // End of file
   EOF_TOKEN
 };

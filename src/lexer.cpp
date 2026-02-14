@@ -2,8 +2,6 @@
 #include <cctype>
 #include <colors.h>
 #include <cstdio>
-#include <iomanip>
-#include <iostream>
 #include <lexer.h>
 #include <string>
 #include <vector>
@@ -420,39 +418,39 @@ const char *tokenName(TokenType t) {
   }
 }
 
-int main() {
-  std::string src = R"(
-  @version "1.0";
-  @author "Tahmid";
+// int main() {
+//   std::string src = R"(
+//   @version "1.0";
+//   @author "Tahmid";
 
-  let x: Integer = 10;
-  let y: Float = 3.14;
+//   let x: Integer = 10;
+//   let y: Float = 3.14;
 
-  func add(a: Integer, b: Integer) -> void {
-	return a + b;
-  }
+//   func add(a: Integer, b: Integer) -> void {
+// 	return a + b;
+//   }
 
-  if x >= 5 {
-	2 + 1;
-  } else {
-	2 + 1;
-  }
+//   if x >= 5 {
+// 	2 + 1;
+//   } else {
+// 	2 + 1;
+//   }
 
-  for i in 0..10 {
-	2 + 1;
-  }
+//   for i in 0..10 {
+// 	2 + 1;
+//   }
 
-  )";
+//   )";
 
-  // std::string src = R"(
-  // let x:Integer;
-  // )";
-  Lexer lexer(src);
-  auto program = lexer.lexer();
+//   // std::string src = R"(
+//   // let x:Integer;
+//   // )";
+//   Lexer lexer(src);
+//   auto program = lexer.lexer();
 
-  int stmtNo = 0;
-  for (const auto &stmt : program) {
-    std::cout << "  " << std::setw(12) << tokenName(stmt.type) << " : '"
-              << stmt.value << "'\n";
-  }
-}
+//   int stmtNo = 0;
+//   for (const auto &stmt : program) {
+//     std::cout << "  " << std::setw(12) << tokenName(stmt.type) << " : '"
+//               << stmt.value << "'\n";
+//   }
+// }

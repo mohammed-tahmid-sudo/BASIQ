@@ -115,7 +115,21 @@ std::unique_ptr<ast> Parser::ParseExpression() {
 
   return left;
 }
+std::unique_ptr<VariableDeclareNode> Parser::ParseVariable() {
+  Expect(TokenType::LET);
+  Token name = Expect(TokenType::IDENTIFIER);
+  Expect(TokenType::COLON);
+  Token type = Expect(TokenType::TYPES);
+  std::unique_ptr<ast> val;
+  if (Peek().type == TokenType::EQ) {
+    Consume();
+    val = ParseExpression();
+  }
+  // Expect(TokenType::SEMICOLON);
 
+  return std::make_unique<VariableDeclareNode>(name.value, std::move(val),
+                                               type);
+}
 std::unique_ptr<ast> Parser::ParseStatement() { return ParseExpression(); }
 std::vector<std::unique_ptr<ast>> Parser::Parse() {
   std::vector<std::unique_ptr<ast>> output;
@@ -157,10 +171,7 @@ int main() {
   // )";
 
   std::string src = R"(
-  1 * 1 + (1 + 1); 
-  1 * 1 + (1 + 1); 
-  1 * 1 + (1 + 1); 
-  1 * 1 + (1 + 1); 
+  let a:Integer = 1 * 1 + (1 + 1);; 
   )";
   Lexer lexer(src);
   auto program = lexer.lexer();

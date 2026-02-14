@@ -18,6 +18,7 @@ public:
 
   std::unique_ptr<ast> ParseExpression();
 
+  std::unique_ptr<VariableDeclareNode> ParseVariable();
   std::unique_ptr<ast> ParseStatement();
 
   std::vector<std::unique_ptr<ast>> Parse();

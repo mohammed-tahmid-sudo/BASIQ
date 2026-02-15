@@ -181,11 +181,32 @@ std::unique_ptr<FunctionNode> Parser::ParseFunction() {
                                         rettype);
 }
 
+std::unique_ptr<CompoundNode> Parser::ParseCompound() {
+  std::vector<std::unique_ptr<ast>> vals;
+
+  Expect(LBRACE);
+
+  while (Peek().type != RBRACE) {
+    std::unique_ptr<ast> val = ParseStatement();
+    if (!val) {
+      continue;
+    }
+    vals.push_back(std::move(val));
+	Consume();
+  }
+  std::cout << tokenName(Peek().type) << std::endl;
+  Consume();
+
+  return std::make_unique<CompoundNode>(std::move(vals));
+}
+
 std::unique_ptr<ast> Parser::ParseStatement() {
   if (Peek().type == TokenType::LET) {
     return ParseVariable();
   } else if (Peek().type == FUNC) {
     return ParseFunction();
+  } else if (Peek().type == LBRACE) {
+    return ParseCompound();
   } else {
     return ParseExpression();
   }
@@ -254,10 +275,12 @@ int main() {
 
   std::string src = R"(
 
-  func foo()->Integer 
+  func foo(b:Integer)->Integer 
 	 let a:Integer  = 1 * 1 + (1 + 1);
-  func main() -> Integer 
-	foo();
+  func main() -> Integer  {
+	let a:Integer  = 1 * 1 + (1 + 1);
+	foo(a);
+  }
    
   )";
   Lexer lexer(src);

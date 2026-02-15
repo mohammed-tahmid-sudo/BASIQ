@@ -20,8 +20,8 @@ std::string StringNode::repr() { return "StringNode(" + val + ")"; }
 
 std::string VariableDeclareNode::repr() {
   return "VariableDeclareNode(name= " + name +
-         " ,value=" + (val ? val->repr() : "null") +
-         ", Type=" + tokenName(Type.type) + ")";
+         " ,value=" + (val ? val->repr() : "null") + ", Type=" + Type.value +
+         ")";
 }
 
 std::string AssignmentNode::repr() {

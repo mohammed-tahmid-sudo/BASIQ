@@ -1,15 +1,17 @@
 #include "ast.h"
 #include "lexer.h"
-#include <algorithm>
 #include <cctype>
 #include <iomanip>
 #include <iostream>
 #include <llvm-18/llvm/IR/InstrTypes.h>
 #include <llvm-18/llvm/IR/Instruction.h>
+#include <llvm-18/llvm/IR/Intrinsics.h>
+#include <llvm-18/llvm/IR/PassManager.h>
+#include <llvm-18/llvm/IR/Type.h>
 #include <llvm-18/llvm/Support/Error.h>
+#include <llvm-18/llvm/Support/raw_ostream.h>
 #include <memory>
 #include <parser.h>
-#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -72,9 +74,30 @@ std::unique_ptr<ast> Parser::ParseFactor() {
     }
     Expect(TokenType::RPAREN);
     return val;
-  }
+  } else if (Peek().type == TokenType::IDENTIFIER) {
+    Token name = Peek();
+    Consume();
 
-  else {
+    if (Peek().type == LPAREN) {
+      Consume();
+      std::vector<std::unique_ptr<ast>> args;
+      while (Peek().type != RPAREN) {
+        auto arg = ParseExpression();
+        args.push_back(std::move(arg));
+        if (Peek().type == COMMA) {
+          Consume();
+        } else {
+          break;
+        }
+      }
+      Expect(RPAREN);
+
+      return std::make_unique<CallNode>(name.value, std::move(args));
+    } else {
+      return std::make_unique<VariableReferenceNode>(name.value);
+    }
+
+  } else {
     return nullptr;
   }
 }
@@ -125,27 +148,86 @@ std::unique_ptr<VariableDeclareNode> Parser::ParseVariable() {
     Consume();
     val = ParseExpression();
   }
-  // Expect(TokenType::SEMICOLON);
+  Expect(TokenType::SEMICOLON);
 
   return std::make_unique<VariableDeclareNode>(name.value, std::move(val),
                                                type);
 }
-std::unique_ptr<ast> Parser::ParseStatement() { return ParseExpression(); }
+
+std::unique_ptr<FunctionNode> Parser::ParseFunction() {
+  Expect(TokenType::FUNC);
+  Token name = Expect(TokenType::IDENTIFIER);
+  Expect(LPAREN);
+  std::vector<std::pair<std::string, llvm::Type *>> args;
+  while (Peek().type != RPAREN) {
+    Token peramName = Expect(IDENTIFIER);
+    Expect(COLON);
+    Token type = Expect(TYPES);
+    args.push_back(
+        std::make_pair(name.value, GetTypeVoid(type, *cc.TheContext)));
+
+    if (Peek().type == COMMA) {
+      Consume();
+    } else {
+      break;
+    }
+  }
+  Expect(RPAREN);
+  Expect(DASHGREATER);
+  auto rettype = Expect(TYPES);
+  std::unique_ptr<ast> block = ParseStatement();
+
+  return std::make_unique<FunctionNode>(name.value, args, std::move(block),
+                                        rettype);
+}
+
+std::unique_ptr<ast> Parser::ParseStatement() {
+  if (Peek().type == TokenType::LET) {
+    return ParseVariable();
+  } else if (Peek().type == FUNC) {
+    return ParseFunction();
+  } else {
+    return ParseExpression();
+  }
+}
+
+// std::vector<std::unique_ptr<ast>> Parser::Parse() {
+//   std::vector<std::unique_ptr<ast>> output;
+
+//   while (Peek().type != TokenType::EOF_TOKEN) {
+//     auto stmt = ParseStatement();
+//     output.push_back(std::move(stmt));
+
+//     // if (Peek().type == TokenType::SEMICOLON) {
+//     //   Consume(); // move past the semicolon
+//     // } else {
+//     //   throw std::runtime_error("Expected ';' after statement");
+//     // }
+//   }
+//   return output;
+// }
+
 std::vector<std::unique_ptr<ast>> Parser::Parse() {
   std::vector<std::unique_ptr<ast>> output;
 
   while (Peek().type != TokenType::EOF_TOKEN) {
-    auto stmt = ParseStatement();
-    output.push_back(std::move(stmt));
-
+    // skip stray semicolons between top-level statements
     if (Peek().type == TokenType::SEMICOLON) {
-      Consume(); // move past the semicolon
-    } else {
-      throw std::runtime_error("Expected ';' after statement");
+      Consume();
+      continue;
     }
+
+    auto stmt = ParseStatement();
+    if (!stmt) {
+      throw std::runtime_error(std::string("Unexpected token in Parse(): ") +
+                               tokenName(Peek().type));
+    }
+
+    output.push_back(std::move(stmt));
   }
   return output;
 }
+
 int main() {
   // std::string src = R"(
   // @version "1.0";
@@ -171,7 +253,12 @@ int main() {
   // )";
 
   std::string src = R"(
-  let a:Integer = 1 * 1 + (1 + 1);; 
+
+  func foo()->Integer 
+	 let a:Integer  = 1 * 1 + (1 + 1);
+  func main() -> Integer 
+	foo();
+   
   )";
   Lexer lexer(src);
   auto program = lexer.lexer();
@@ -189,7 +276,14 @@ int main() {
             << std::endl;
   Parser parser(program, "MYMODULE");
   auto val = parser.Parse();
+  // for (auto &v : val) {
+  //   std::cout << v->repr() << std::endl;
+  // }
+
+  CodegenContext cc("YO");
   for (auto &v : val) {
-    std::cout << v->repr() << std::endl;
+    v->codegen(cc);
   }
+
+  cc.Module->print(llvm::outs(), nullptr);
 }

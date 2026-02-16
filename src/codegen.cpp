@@ -75,11 +75,18 @@ llvm::Value *StringNode::codegen(CodegenContext &cc) {
 
 llvm::Value *VariableDeclareNode::codegen(CodegenContext &cc) {
   llvm::Type *llvmType = GetTypeNonVoid(Type, *cc.TheContext);
+
+  if (!cc.Builder->GetInsertBlock())
+    std::cout << "NO INSERT BLOCK\n";
+
   llvm::AllocaInst *alloca = cc.Builder->CreateAlloca(llvmType, nullptr, name);
 
   if (val) {
     llvm::Value *initVal = val->codegen(cc);
     cc.Builder->CreateStore(initVal, alloca);
+  } else {
+    llvm::Value *zero = llvm::Constant::getNullValue(llvmType);
+    cc.Builder->CreateStore(zero, alloca);
   }
 
   cc.addVariable(name, alloca);

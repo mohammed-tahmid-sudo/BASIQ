@@ -9,6 +9,7 @@
 #include <llvm-18/llvm/IR/PassManager.h>
 #include <llvm-18/llvm/IR/Type.h>
 #include <llvm-18/llvm/Support/Error.h>
+#include <llvm-18/llvm/Support/MathExtras.h>
 #include <llvm-18/llvm/Support/raw_ostream.h>
 #include <memory>
 #include <parser.h>
@@ -28,7 +29,7 @@ Token Parser::Consume() {
   if (x < input.size()) {
     return input[x++]; // return current, then advance
   }
-  return {TokenType::EOF_TOKEN, ""};
+  throw std::runtime_error("Attempted to consume past end of input");
 }
 
 Token Parser::Expect(TokenType tk) {
@@ -78,10 +79,24 @@ std::unique_ptr<ast> Parser::ParseFactor() {
     Token name = Peek();
     Consume();
 
-    if (Peek().type == LPAREN) {
+    if (Peek().type == EQ) {
+      Consume();
+      auto val = ParseExpression();
+      Expect(SEMICOLON);
+
+      return std::make_unique<AssignmentNode>(name.value, std::move(val));
+
+    } else if (Peek().type == LPAREN) {
+
       Consume();
       std::vector<std::unique_ptr<ast>> args;
+
       while (Peek().type != RPAREN) {
+        if (Peek().type == EOF_TOKEN) {
+          throw std::runtime_error(
+              "Unexpected end of input while parsing function arguments for " +
+              name.value);
+        }
         auto arg = ParseExpression();
         args.push_back(std::move(arg));
         if (Peek().type == COMMA) {
@@ -90,15 +105,22 @@ std::unique_ptr<ast> Parser::ParseFactor() {
           break;
         }
       }
+
       Expect(RPAREN);
 
       return std::make_unique<CallNode>(name.value, std::move(args));
     } else {
+
       return std::make_unique<VariableReferenceNode>(name.value);
     }
 
   } else {
-    return nullptr;
+    if (Peek().type == SEMICOLON) {
+      return nullptr; // just signal “no factor here”
+    } else {
+      throw std::runtime_error("Unexpected token in ParseFactor: " +
+                               std::string(tokenName(Peek().type)));
+    }
   }
 }
 
@@ -143,7 +165,7 @@ std::unique_ptr<VariableDeclareNode> Parser::ParseVariable() {
   Token name = Expect(TokenType::IDENTIFIER);
   Expect(TokenType::COLON);
   Token type = Expect(TokenType::TYPES);
-  std::unique_ptr<ast> val;
+  std::unique_ptr<ast> val = nullptr;
   if (Peek().type == TokenType::EQ) {
     Consume();
     val = ParseExpression();
@@ -164,7 +186,7 @@ std::unique_ptr<FunctionNode> Parser::ParseFunction() {
     Expect(COLON);
     Token type = Expect(TYPES);
     args.push_back(
-        std::make_pair(name.value, GetTypeVoid(type, *cc.TheContext)));
+        std::make_pair(peramName.value, GetTypeVoid(type, *cc.TheContext)));
 
     if (Peek().type == COMMA) {
       Consume();
@@ -176,6 +198,8 @@ std::unique_ptr<FunctionNode> Parser::ParseFunction() {
   Expect(DASHGREATER);
   auto rettype = Expect(TYPES);
   std::unique_ptr<ast> block = ParseStatement();
+  if (!block)
+    throw std::runtime_error("Function missing body");
 
   return std::make_unique<FunctionNode>(name.value, args, std::move(block),
                                         rettype);
@@ -187,46 +211,95 @@ std::unique_ptr<CompoundNode> Parser::ParseCompound() {
   Expect(LBRACE);
 
   while (Peek().type != RBRACE) {
-    std::unique_ptr<ast> val = ParseStatement();
-    if (!val) {
+    if (Peek().type == SEMICOLON) {
+      Consume();
       continue;
     }
+    std::unique_ptr<ast> val = ParseStatement();
+    if (!val) {
+      throw std::runtime_error("ERROR: Invalid syntax " +
+                               std::string(tokenName(Peek().type)));
+    }
     vals.push_back(std::move(val));
-	Consume();
+    // Consume();
   }
-  std::cout << tokenName(Peek().type) << std::endl;
-  Consume();
+  // std::cout << tokenName(Peek().type) << std::endl;
+  Expect(RBRACE);
 
   return std::make_unique<CompoundNode>(std::move(vals));
 }
+std::unique_ptr<ReturnNode> Parser::ParseReturn() {
+  Expect(RETURN);
+  auto val = ParseExpression();
+  if (!val)
+    throw std::runtime_error("ERROR: Return statement MIssing Expression");
+  Expect(SEMICOLON);
+  return std::make_unique<ReturnNode>(std::move(val));
+}
 
+std::unique_ptr<IfNode> Parser::ParseIfElse() {
+  Expect(IF);
+  // Expect(LPAREN);
+  auto args = ParseExpression();
+  if (!args) {
+    throw std::runtime_error("If statement missing condition");
+  }
+
+  // Expect(RPAREN);
+  std::unique_ptr<ast> TrueBlock = ParseStatement();
+
+  if (!TrueBlock) {
+    throw std::runtime_error("If statement missing TrueBlock");
+  }
+
+  std::unique_ptr<ast> ElseBlock = nullptr;
+
+  if (Peek().type == ELSE) {
+    Expect(ELSE);
+    ElseBlock = ParseStatement();
+    if (!ElseBlock) {
+      throw std::runtime_error("If statement missing ElseBlock");
+    }
+  }
+
+  return std::make_unique<IfNode>(std::move(args), std::move(TrueBlock),
+                                  std::move(ElseBlock));
+}
+
+std::unique_ptr<WhileNode> Parser::ParseWhile() {
+  Expect(WHILE);
+  Expect(LPAREN);
+  auto args = ParseExpression();
+  Expect(RPAREN);
+  auto block = ParseStatement();
+
+  return std::make_unique<WhileNode>(std::move(args), std::move(block));
+}
 std::unique_ptr<ast> Parser::ParseStatement() {
   if (Peek().type == TokenType::LET) {
     return ParseVariable();
   } else if (Peek().type == FUNC) {
     return ParseFunction();
+  } else if (Peek().type == RETURN) {
+    return ParseReturn();
   } else if (Peek().type == LBRACE) {
     return ParseCompound();
+  } else if (Peek().type == IF) {
+    return ParseIfElse();
+  } else if (Peek().type == WHILE) {
+    return ParseWhile();
   } else {
-    return ParseExpression();
+    if (auto v = ParseExpression()) {
+      return v;
+    } else {
+      if (Peek().type == SEMICOLON)
+        return nullptr;
+
+      throw std::runtime_error("UnExpected Token" +
+                               std::string(tokenName(Peek().type)));
+    }
   }
 }
-
-// std::vector<std::unique_ptr<ast>> Parser::Parse() {
-//   std::vector<std::unique_ptr<ast>> output;
-
-//   while (Peek().type != TokenType::EOF_TOKEN) {
-//     auto stmt = ParseStatement();
-//     output.push_back(std::move(stmt));
-
-//     // if (Peek().type == TokenType::SEMICOLON) {
-//     //   Consume(); // move past the semicolon
-//     // } else {
-//     //   throw std::runtime_error("Expected ';' after statement");
-//     // }
-//   }
-//   return output;
-// }
 
 std::vector<std::unique_ptr<ast>> Parser::Parse() {
   std::vector<std::unique_ptr<ast>> output;
@@ -250,39 +323,29 @@ std::vector<std::unique_ptr<ast>> Parser::Parse() {
 }
 
 int main() {
-  // std::string src = R"(
-  // @version "1.0";
-  // @author "Tahmid";
-
-  // let x: Integer = 10;
-  // let y: Float = 3.14;
-
-  // func add(a: Integer, b: Integer) -> void {
-  // return a + b;
-  // }
-
-  // if x >= 5 {
-  // 2 + 1;
-  // } else {
-  // 2 + 1;
-  // }
-
-  // for i in 0..10 {
-  // 2 + 1;
-  // }
-
-  // )";
-
   std::string src = R"(
+  
 
-  func foo(b:Integer)->Integer 
-	 let a:Integer  = 1 * 1 + (1 + 1);
-  func main() -> Integer  {
-	let a:Integer  = 1 * 1 + (1 + 1);
-	foo(a);
+
+  func add(a: Integer, b: Integer) -> Integer {
+  return a + b;
   }
-   
+
+  func main() -> Void {
+	let x: Integer = 10;
+	let y: Float = 3.14;
+
+	if x + 5 {
+		2 + 1;
+	} else {
+	  2 + 1;
+	}
+	return add(x, y);
+  }
+
+
   )";
+
   Lexer lexer(src);
   auto program = lexer.lexer();
 
@@ -305,7 +368,12 @@ int main() {
 
   CodegenContext cc("YO");
   for (auto &v : val) {
-    v->codegen(cc);
+    try {
+      v->codegen(cc);
+    } catch (const std::exception &e) {
+      std::cerr << "Codegen error: " << e.what() << std::endl;
+      // Optionally: continue to next node or break
+    }
   }
 
   cc.Module->print(llvm::outs(), nullptr);

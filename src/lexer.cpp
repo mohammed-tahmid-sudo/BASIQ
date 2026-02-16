@@ -191,7 +191,7 @@ std::vector<Token> Lexer::lexer() {
 
       // Types (case-sensitive as per grammar: Integer, Float, Boolean, String)
       if (id == "Integer" || id == "Float" || id == "Boolean" ||
-          id == "String") {
+          id == "String" || id == "Void") {
         out.push_back({TYPES, id});
         continue;
       }

@@ -20,7 +20,11 @@ public:
 
   std::unique_ptr<VariableDeclareNode> ParseVariable();
   std::unique_ptr<FunctionNode> ParseFunction();
-  std::unique_ptr<CompoundNode> ParseCompound(); 
+  std::unique_ptr<CompoundNode> ParseCompound();
+  std::unique_ptr<ReturnNode> ParseReturn();
+  std::unique_ptr<IfNode> ParseIfElse();
+  std::unique_ptr<WhileNode> ParseWhile();
+	
   std::unique_ptr<ast> ParseStatement();
 
   std::vector<std::unique_ptr<ast>> Parse();

@@ -2,6 +2,7 @@
 #include <cctype>
 #include <colors.h>
 #include <cstdio>
+#include <iostream>
 #include <lexer.h>
 #include <string>
 #include <vector>
@@ -297,6 +298,14 @@ std::vector<Token> Lexer::lexer() {
       Consume();
       out.push_back({RBRACE, "}"});
       break;
+    case '[':
+      Consume();
+      out.push_back({LBRACKET, "["});
+      break;
+    case ']':
+      Consume();
+      out.push_back({RBRACKET, "]"});
+      break;
     case ':':
       Consume();
       out.push_back({COLON, ":"});
@@ -413,6 +422,10 @@ const char *tokenName(TokenType t) {
     return "Types";
   case SEMICOLON:
     return "SEMICOLON";
+  case LBRACKET:
+	return "LBRACKET";
+  case RBRACKET:
+	return "RBRACKET";
   default:
     return "UNKNOWN";
   }
@@ -425,6 +438,8 @@ const char *tokenName(TokenType t) {
 
 //   let x: Integer = 10;
 //   let y: Float = 3.14;
+
+//   let y: Integer[2] = [21, 12];
 
 //   func add(a: Integer, b: Integer) -> void {
 // 	return a + b;

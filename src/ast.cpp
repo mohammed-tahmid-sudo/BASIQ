@@ -43,17 +43,6 @@ std::string CompoundNode::repr() {
   return output;
 }
 
-// std::string CompoundNode::repr() {
-//   std::string output;
-//   output = +"[";
-//   for (auto &block : blocks) {
-//     std::string val = block->repr();
-//     output += ", " + val;
-//   }
-//   output = +"]";
-//   return output;
-// }
-
 std::string FunctionNode::repr() {
   return "FunctionNode(Name=" + name + ", Value=[" + content->repr() +
          "], ReturnType=" + ReturnType.value;
@@ -85,3 +74,17 @@ std::string BreakNode::repr() { return "BreakNode(NOARGS)"; }
 std::string ContinueNode::repr() { return "ContinueNode(NOARGS)"; }
 
 std::string CallNode::repr() { return "CallNode(Name=" + name + ", contents"; }
+
+std::string ForNode::repr() {
+  std::string s = "ForNode(\n";
+  s += "  init: " + (init ? init->repr() : "null") + ",\n";
+  s += "  condition: " + (condition ? condition->repr() : "null") + ",\n";
+  s += "  increment: " + (increment ? increment->repr() : "null") + ",\n";
+  s += "  body: " + (body ? body->repr() : "null") + "\n";
+  s += ")";
+  return s;
+}
+
+std::string ArrayLiteralNode::repr() {
+	return "SOME WEIRD SHIT";
+}

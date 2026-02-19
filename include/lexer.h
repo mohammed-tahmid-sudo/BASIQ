@@ -51,6 +51,8 @@ enum TokenType {
   RPAREN,
   LBRACE,
   RBRACE,
+  LBRACKET,
+  RBRACKET,
   COLON,
   COMMA,
   DASHGREATER,

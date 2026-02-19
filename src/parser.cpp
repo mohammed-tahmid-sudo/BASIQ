@@ -1,8 +1,6 @@
 #include "ast.h"
 #include "lexer.h"
 #include <cctype>
-#include <iomanip>
-#include <iostream>
 #include <llvm-18/llvm/IR/InstrTypes.h>
 #include <llvm-18/llvm/IR/Instruction.h>
 #include <llvm-18/llvm/IR/Intrinsics.h>
@@ -37,7 +35,7 @@ Token Parser::Expect(TokenType tk) {
     // std::cout << "COMMING HERE " << tokenName(tk) << std::endl;
     return Consume();
   }
-  throw std::runtime_error("EXPECTED" + std::string(tokenName(tk)) + ", GOT " +
+  throw std::runtime_error("EXPECTED " + std::string(tokenName(tk)) + ", GOT " +
                            tokenName(Peek().type));
 }
 
@@ -82,7 +80,7 @@ std::unique_ptr<ast> Parser::ParseFactor() {
     if (Peek().type == EQ) {
       Consume();
       auto val = ParseExpression();
-      Expect(SEMICOLON);
+      // Expect(SEMICOLON);
 
       return std::make_unique<AssignmentNode>(name.value, std::move(val));
 
@@ -126,7 +124,9 @@ std::unique_ptr<ast> Parser::ParseFactor() {
 
 std::unique_ptr<ast> Parser::ParseTerm() {
   std::unique_ptr<ast> left = ParseFactor();
-  while (Peek().type == TokenType::STAR || Peek().type == TokenType::SLASH) {
+  while (Peek().type == TokenType::STAR || Peek().type == TokenType::SLASH ||
+         Peek().type == TokenType::GT || Peek().type == GTE ||
+         Peek().type == LT || Peek().type == LTE || Peek().type == EQEQ) {
     TokenType type = Peek().type;
     Consume();
 
@@ -275,6 +275,29 @@ std::unique_ptr<WhileNode> Parser::ParseWhile() {
 
   return std::make_unique<WhileNode>(std::move(args), std::move(block));
 }
+
+std::unique_ptr<ForNode> Parser::ParseFor() {
+  Expect(FOR);
+  Expect(LPAREN);
+
+  auto init = ParseExpression();
+
+  Expect(SEMICOLON);
+
+  auto condition = ParseExpression();
+
+  Expect(SEMICOLON);
+
+  auto incremnt = ParseExpression();
+
+  Expect(RPAREN);
+
+  auto body = ParseStatement();
+
+  return std::make_unique<ForNode>(std::move(init), std::move(condition),
+                                   std::move(incremnt), std::move(body));
+}
+
 std::unique_ptr<ast> Parser::ParseStatement() {
   if (Peek().type == TokenType::LET) {
     return ParseVariable();
@@ -288,6 +311,8 @@ std::unique_ptr<ast> Parser::ParseStatement() {
     return ParseIfElse();
   } else if (Peek().type == WHILE) {
     return ParseWhile();
+  } else if (Peek().type == FOR) {
+    return ParseFor();
   } else {
     if (auto v = ParseExpression()) {
       return v;
@@ -322,59 +347,46 @@ std::vector<std::unique_ptr<ast>> Parser::Parse() {
   return output;
 }
 
-int main() {
-  std::string src = R"(
-  
+// int main() {
+//   std::string src = R"(
+//   func main() -> String {
+// 	let s: String = "Value is yeah";
 
+// 	return s;
+//   }
+//   )";
 
-  func add(a: Integer, b: Integer) -> Integer {
-  return a + b;
-  }
+//   Lexer lexer(src);
+//   auto program = lexer.lexer();
 
-  func main() -> Void {
-	let x: Integer = 10;
-	let y: Float = 3.14;
+//   int stmtNo = 0;
+//   for (const auto &stmt : program) {
+//     std::cout << "  " << std::setw(12) << tokenName(stmt.type) << " : '"
+//               << stmt.value << "'\n";
+//   }
 
-	if x + 5 {
-		2 + 1;
-	} else {
-	  2 + 1;
-	}
-	return add(x, y);
-  }
+//   std::cout << Colors::BOLD << Colors::RED
+//             <<
+//             "---------------------------------------------------------------"
+//                "---------------------------------------------------------------"
+//                "---------------------------------------------------------------"
+//                "-----------------------"
+//             << Colors::RESET << std::endl;
+//   Parser parser(program, "MYMODULE");
+//   auto val = parser.Parse();
+//   for (auto &v : val) {
+//     std::cout << v->repr() << std::endl;
+//   }
 
+//   CodegenContext cc("YO");
+//   for (auto &v : val) {
+//     try {
+//       v->codegen(cc);
+//     } catch (const std::exception &e) {
+//       std::cerr << "Codegen error: " << e.what() << std::endl;
+//       // Optionally: continue to next node or break
+//     }
+//   }
 
-  )";
-
-  Lexer lexer(src);
-  auto program = lexer.lexer();
-
-  int stmtNo = 0;
-  for (const auto &stmt : program) {
-    std::cout << "  " << std::setw(12) << tokenName(stmt.type) << " : '"
-              << stmt.value << "'\n";
-  }
-
-  std::cout << "---------------------------------------------------------------"
-               "---------------------------------------------------------------"
-               "---------------------------------------------------------------"
-               "-----------------------"
-            << std::endl;
-  Parser parser(program, "MYMODULE");
-  auto val = parser.Parse();
-  // for (auto &v : val) {
-  //   std::cout << v->repr() << std::endl;
-  // }
-
-  CodegenContext cc("YO");
-  for (auto &v : val) {
-    try {
-      v->codegen(cc);
-    } catch (const std::exception &e) {
-      std::cerr << "Codegen error: " << e.what() << std::endl;
-      // Optionally: continue to next node or break
-    }
-  }
-
-  cc.Module->print(llvm::outs(), nullptr);
-}
+//   cc.Module->print(llvm::outs(), nullptr);
+// }

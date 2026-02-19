@@ -5,6 +5,9 @@ project(BASIQ VERSION 0.1 LANGUAGES CXX C)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+# Enable Compile Commands
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # Enable debug symbols
 set(CMAKE_BUILD_TYPE Debug)
 

@@ -73,20 +73,68 @@ llvm::Value *StringNode::codegen(CodegenContext &cc) {
   return cc.Builder->CreateGlobalStringPtr(val);
 }
 
+// llvm::Value *VariableDeclareNode::codegen(CodegenContext &cc) {
+//   llvm::Type *llvmType = GetTypeNonVoid(Type, *cc.TheContext);
+
+//   if (!cc.Builder->GetInsertBlock())
+//     std::cout << "NO INSERT BLOCK\n";
+
+//   llvm::AllocaInst *alloca = cc.Builder->CreateAlloca(llvmType, nullptr,
+//   name);
+
+//   if (val) {
+//     llvm::Value *initVal = val->codegen(cc);
+//     cc.Builder->CreateStore(initVal, alloca);
+//   } else {
+//     llvm::Value *zero = llvm::Constant::getNullValue(llvmType);
+//     cc.Builder->CreateStore(zero, alloca);
+//   }
+
+//   cc.addVariable(name, alloca);
+//   return alloca;
+// }
+
 llvm::Value *VariableDeclareNode::codegen(CodegenContext &cc) {
   llvm::Type *llvmType = GetTypeNonVoid(Type, *cc.TheContext);
 
   if (!cc.Builder->GetInsertBlock())
     std::cout << "NO INSERT BLOCK\n";
 
-  llvm::AllocaInst *alloca = cc.Builder->CreateAlloca(llvmType, nullptr, name);
+  llvm::AllocaInst *alloca;
 
-  if (val) {
-    llvm::Value *initVal = val->codegen(cc);
-    cc.Builder->CreateStore(initVal, alloca);
+  // if it's an array
+  if (arraySize.has_value()) {
+    llvm::Value *sizeVal = llvm::ConstantInt::get(
+        llvm::Type::getInt32Ty(*cc.TheContext), arraySize.value());
+    alloca = cc.Builder->CreateAlloca(llvmType, sizeVal, name);
+
+    // initialize if val exists and is an array literal
+    if (val) {
+      auto *arrayLiteral = dynamic_cast<ArrayLiteralNode *>(val.get());
+      if (arrayLiteral) {
+        for (unsigned i = 0; i < arrayLiteral->Elements.size(); i++) {
+          llvm::Value *elemVal = arrayLiteral->Elements[i]->codegen(cc);
+          llvm::Value *elemPtr = cc.Builder->CreateGEP(
+              llvmType, // type of each element
+              alloca,   // pointer to the array
+              {llvm::ConstantInt::get(llvm::Type::getInt32Ty(*cc.TheContext),
+                                      i)}, // indices as ArrayRef
+              name + "_elem");
+
+          cc.Builder->CreateStore(elemVal, elemPtr);
+        }
+      }
+    }
   } else {
-    llvm::Value *zero = llvm::Constant::getNullValue(llvmType);
-    cc.Builder->CreateStore(zero, alloca);
+    // single variable
+    alloca = cc.Builder->CreateAlloca(llvmType, nullptr, name);
+    if (val) {
+      llvm::Value *initVal = val->codegen(cc);
+      cc.Builder->CreateStore(initVal, alloca);
+    } else {
+      llvm::Value *zero = llvm::Constant::getNullValue(llvmType);
+      cc.Builder->CreateStore(zero, alloca);
+    }
   }
 
   cc.addVariable(name, alloca);
@@ -381,7 +429,8 @@ llvm::Value *BinaryOperationNode::codegen(CodegenContext &cc) {
   }
 
   default:
-    throw std::runtime_error("unknown binary operator");
+    throw std::runtime_error("unknown binary operator Named" +
+                             std::string(tokenName(Type)));
   }
 }
 
@@ -421,67 +470,137 @@ llvm::Value *ContinueNode::codegen(CodegenContext &cc) {
   return cc.Builder->CreateBr(cc.ContinueBB);
 }
 
-// int main() {
-//   CodegenContext ctx("myprogram");
-//   ctx.pushScope(); // Start Global Scope
+llvm::Value *ForNode::codegen(CodegenContext &cc) {
+  llvm::Function *function = cc.Builder->GetInsertBlock()->getParent();
 
-//   // --- First compound for "random" function ---
-//   std::vector<std::unique_ptr<ast>> vals;
+  if (init) {
+    init->codegen(cc);
+  }
+  llvm::BasicBlock *loopCondBB =
+      llvm::BasicBlock::Create(*cc.TheContext, "loopcond", function);
+  llvm::BasicBlock *loopBodyBB =
+      llvm::BasicBlock::Create(*cc.TheContext, "loopbody", function);
+  llvm::BasicBlock *loopEndBB =
+      llvm::BasicBlock::Create(*cc.TheContext, "loopend", function);
 
-//   vals.push_back(std::make_unique<VariableDeclareNode>(
-//       "val2", std::make_unique<VariableReferenceNode>("val1"),
-//       Token{TokenType::Types, "INTEGER"}));
+  cc.Builder->CreateBr(loopCondBB);
+  cc.Builder->SetInsertPoint(loopCondBB);
+  llvm::Value *condValue = condition->codegen(cc);
+  if (!condValue)
+    return nullptr;
 
-//   vals.push_back(std::make_unique<WhileNode>(
-//       std::make_unique<VariableReferenceNode>("val2"),
-//       std::make_unique<ContinueNode>()));
+  condValue = cc.Builder->CreateICmpNE(
+      condValue, llvm::ConstantInt::get(condValue->getType(), 0), "forcond");
 
-//   vals.push_back(std::make_unique<IfNode>(
-//       std::make_unique<VariableReferenceNode>("val2"),
-//       std::make_unique<IntegerNode>(21), std::make_unique<IntegerNode>(32)));
+  cc.Builder->CreateCondBr(condValue, loopBodyBB, loopEndBB);
 
-//   vals.push_back(
-//       std::make_unique<ReturnNode>(std::make_unique<BinaryOperationNode>(
-//           TokenType::GTE, std::make_unique<VariableReferenceNode>("val1"),
-//           std::make_unique<VariableReferenceNode>("val2"))));
+  cc.Builder->SetInsertPoint(loopBodyBB);
+  if (body)
+    body->codegen(cc);
 
-//   auto compoundRandom = std::make_unique<CompoundNode>(std::move(vals));
+  if (increment)
+    increment->codegen(cc);
 
-//   std::vector<std::pair<std::string, llvm::Type *>> typeRandom = {
-//       {"val1", llvm::Type::getInt32Ty(*ctx.TheContext)}};
+  cc.Builder->CreateBr(loopCondBB);
 
-//   auto RandomFunction = std::make_unique<FunctionNode>(
-//       "random", typeRandom, std::move(compoundRandom),
-//       Token{TokenType::Types, "INTEGER"});
+  cc.Builder->SetInsertPoint(loopEndBB);
 
-//   // --- Second compound for "main" function ---
-//   std::vector<std::unique_ptr<ast>> anothervals;
+  return llvm::Constant::getNullValue(llvm::Type::getInt32Ty(*cc.TheContext));
+}
 
-//   anothervals.push_back(std::make_unique<VariableDeclareNode>(
-//       "val1", std::make_unique<IntegerNode>(21),
-//       Token{TokenType::Types, "INTEGER"}));
+llvm::Value *ArrayLiteralNode::codegen(CodegenContext &cc) {
 
-//   // Prepare arguments vector separately to move unique_ptrs
-//   std::vector<std::unique_ptr<ast>> callArgs;
-//   callArgs.push_back(std::make_unique<VariableReferenceNode>("val1"));
+  llvm::ArrayType *arrType = llvm::ArrayType::get(ElementType, Elements.size());
 
-//   anothervals.push_back(
-//       std::make_unique<CallNode>("random", std::move(callArgs)));
+  llvm::AllocaInst *arrayAlloc =
+      cc.Builder->CreateAlloca(arrType, nullptr, "arraytmp");
 
-//   auto anotherCompound =
-//   std::make_unique<CompoundNode>(std::move(anothervals));
+  for (size_t i = 0; i < Elements.size(); i++) {
 
-//   auto Function = std::make_unique<FunctionNode>(
-//       "main", typeRandom, std::move(anotherCompound),
-//       Token{TokenType::Types, "INTEGER"});
+    llvm::Value *elemVal = Elements[i]->codegen(cc);
 
-//   // --- Codegen ---
+    llvm::Value *zero = cc.Builder->getInt32(0);
+    llvm::Value *index = cc.Builder->getInt32(i);
 
-//   RandomFunction->codegen(ctx);
-//   Function->codegen(ctx);
+    llvm::Value *gep =
+        cc.Builder->CreateGEP(arrType, arrayAlloc, {zero, index}, "elemptr");
 
-//   ctx.Module->print(llvm::errs(), nullptr);
+    cc.Builder->CreateStore(elemVal, gep);
+  }
 
-//   ctx.popScope(); // End Global Scope
-//   return 0;
-// }
+  return arrayAlloc;
+}
+
+int main() {
+  CodegenContext ctx("myprogram");
+  ctx.pushScope(); // Start Global Scope
+
+  // --- First compound for "random" function ---
+  std::vector<std::unique_ptr<ast>> vals;
+
+  vals.push_back(std::make_unique<VariableDeclareNode>(
+      "val2", std::make_unique<VariableReferenceNode>("val1"),
+      Token{TokenType::TYPES, "INTEGER"}));
+
+  vals.push_back(std::make_unique<WhileNode>(
+      std::make_unique<VariableReferenceNode>("val2"),
+      std::make_unique<ContinueNode>()));
+
+  vals.push_back(std::make_unique<IfNode>(
+      std::make_unique<VariableReferenceNode>("val2"),
+      std::make_unique<IntegerNode>(21), std::make_unique<IntegerNode>(32)));
+
+  vals.push_back(
+      std::make_unique<ReturnNode>(std::make_unique<BinaryOperationNode>(
+          TokenType::GTE, std::make_unique<VariableReferenceNode>("val1"),
+          std::make_unique<VariableReferenceNode>("val2"))));
+
+  auto compoundRandom = std::make_unique<CompoundNode>(std::move(vals));
+
+  std::vector<std::pair<std::string, llvm::Type *>> typeRandom = {
+      {"val1", llvm::Type::getInt32Ty(*ctx.TheContext)}};
+
+  auto RandomFunction = std::make_unique<FunctionNode>(
+      "random", typeRandom, std::move(compoundRandom),
+      Token{TokenType::TYPES, "INTEGER"});
+
+  // --- Second compound for "main" function ---
+  std::vector<std::unique_ptr<ast>> anothervals;
+
+  anothervals.push_back(std::make_unique<VariableDeclareNode>(
+      "val1", std::make_unique<IntegerNode>(21),
+      Token{TokenType::TYPES, "INTEGER"}));
+
+  // Prepare arguments vector separately to move unique_ptrs
+  std::vector<std::unique_ptr<ast>> callArgs;
+  callArgs.push_back(std::make_unique<VariableReferenceNode>("val1"));
+
+  anothervals.push_back(
+      std::make_unique<CallNode>("random", std::move(callArgs)));
+
+  std::vector<std::unique_ptr<ast>> elements;
+  elements.push_back(std::make_unique<IntegerNode>(21));
+  elements.push_back(std::make_unique<IntegerNode>(21));
+  elements.push_back(std::make_unique<IntegerNode>(21));
+
+  anothervals.push_back(std::make_unique<ArrayLiteralNode>(
+      llvm::Type::getInt32Ty(*ctx.TheContext), std::move(elements)));
+
+  auto anotherCompound =
+  std::make_unique<CompoundNode>(std::move(anothervals));
+
+  auto Function = std::make_unique<FunctionNode>(
+      "main", typeRandom, std::move(anotherCompound),
+      Token{TokenType::TYPES, "INTEGER"});
+
+  // --- Codegen ---
+
+  RandomFunction->codegen(ctx);
+  Function->codegen(ctx);
+
+  ctx.Module->print(llvm::errs(), nullptr);
+
+  ctx.popScope(); // End Global Scope
+  return 0;
+}
+

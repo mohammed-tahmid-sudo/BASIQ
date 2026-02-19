@@ -28,7 +28,8 @@ var_decl        ::= "let" identifier ":" type "=" expr
 assignment      ::= identifier "=" expr
 
 // Types
-type            ::= "Integer" | "Float" | "Boolean" | "String" | identifier
+type            ::= "Integer" | "Float" | "Boolean" | "String" | identifier | "Void" | array_type
+array_type      ::= type "[" [ integer_literal ] "]"
 
 // Expressions
 expr            ::= literal
@@ -38,6 +39,8 @@ expr            ::= literal
                   | "(" expr ")"
 
 binary_op       ::= "+" | "-" | "*" | "/" | "==" | "!=" | "<" | ">" | "<=" | ">=" | "&&" | "||"
+
+
 
 literal         ::= integer_literal
                   | float_literal

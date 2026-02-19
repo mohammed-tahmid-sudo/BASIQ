@@ -40,40 +40,6 @@ struct CodegenContext {
         Module(std::make_unique<llvm::Module>(name, *TheContext)) {}
 };
 
-// struct CodegenContext {
-//   std::unique_ptr<llvm::LLVMContext> TheContext;
-//   std::unique_ptr<llvm::IRBuilder<>> Builder;
-//   std::unique_ptr<llvm::Module> Module;
-//   std::vector<std::unordered_map<std::string, llvm::Value *>>
-//   NamedValuesStack;
-
-//   // Enter a new scope
-//   void pushScope() { NamedValuesStack.push_back({}); }
-
-//   // Exit current scope
-//   void popScope() { NamedValuesStack.pop_back(); }
-
-//   // Add a variable to the current scope
-//   void addVariable(const std::string &name, llvm::Value *value) {
-//     NamedValuesStack.back()[name] = value;
-//   }
-
-//   // Lookup variable (from innermost to outermost scope)
-//   llvm::Value *lookup(const std::string &name) {
-//     for (auto it = NamedValuesStack.rbegin(); it != NamedValuesStack.rend();
-//          ++it) {
-//       if (it->count(name))
-//         return (*it)[name];
-//     }
-//     return nullptr; // not found
-//   }
-
-//   CodegenContext(const std::string &name)
-//       : TheContext(std::make_unique<llvm::LLVMContext>()),
-//         Builder(std::make_unique<llvm::IRBuilder<>>(*TheContext)),
-//         Module(std::make_unique<llvm::Module>(name, *TheContext)) {}
-// };
-
 llvm::Type *GetTypeNonVoid(Token type, llvm::LLVMContext &context);
 
 llvm::Type *GetTypeVoid(Token type, llvm::LLVMContext &context);
@@ -115,12 +81,27 @@ struct StringNode : ast {
 struct VariableDeclareNode : ast {
   std::string name;
   Token Type;
-  std::unique_ptr<ast> val;
-  VariableDeclareNode(const std::string &n, std::unique_ptr<ast> v, Token t)
-      : name(n), val(std::move(v)), Type(t) {}
+  std::unique_ptr<ast> val;          // can be single value or ArrayLiteralNode
+  std::optional<unsigned> arraySize; // new: size if it's an array
+
+  VariableDeclareNode(const std::string &n, std::unique_ptr<ast> v, Token t,
+                      std::optional<unsigned> size = std::nullopt)
+      : name(n), val(std::move(v)), Type(t), arraySize(size) {}
+
   std::string repr() override;
+
   llvm::Value *codegen(CodegenContext &cc) override;
 };
+
+// struct VariableDeclareNode : ast {
+//   std::string name;
+//   Token Type;
+//   std::unique_ptr<ast> val;
+//   VariableDeclareNode(const std::string &n, std::unique_ptr<ast> v, Token t)
+//       : name(n), val(std::move(v)), Type(t) {}
+//   std::string repr() override;
+//   llvm::Value *codegen(CodegenContext &cc) override;
+// };
 
 struct AssignmentNode : ast {
   std::string name;
@@ -218,6 +199,33 @@ struct CallNode : ast {
 
   CallNode(const std::string &s, std::vector<std::unique_ptr<ast>> arg)
       : name(s), args(std::move(arg)) {}
+  std::string repr() override;
+  llvm::Value *codegen(CodegenContext &cc) override;
+};
+
+struct ForNode : ast {
+  std::unique_ptr<ast> init;      // e.g., i = 0
+  std::unique_ptr<ast> condition; // e.g., i < 10
+  std::unique_ptr<ast> increment; // e.g., i = i + 1
+  std::unique_ptr<ast> body;      // block of statements
+
+  ForNode(std::unique_ptr<ast> init, std::unique_ptr<ast> cond,
+          std::unique_ptr<ast> inc, std::unique_ptr<ast> body)
+      : init(std::move(init)), condition(std::move(cond)),
+        increment(std::move(inc)), body(std::move(body)) {}
+
+  std::string repr() override;
+  llvm::Value *codegen(CodegenContext &cc) override;
+};
+
+struct ArrayLiteralNode : ast {
+  llvm::Type *ElementType;
+  std::vector<std::unique_ptr<ast>> Elements;
+
+  ArrayLiteralNode(llvm::Type *elemType,
+                   std::vector<std::unique_ptr<ast>> elements)
+      : ElementType(elemType), Elements(std::move(elements)) {}
+
   std::string repr() override;
   llvm::Value *codegen(CodegenContext &cc) override;
 };

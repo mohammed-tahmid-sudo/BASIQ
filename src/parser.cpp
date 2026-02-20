@@ -1,6 +1,9 @@
 #include "ast.h"
 #include "lexer.h"
 #include <cctype>
+#include <colors.h>
+#include <iomanip>
+#include <llvm-18/llvm/IR/DerivedTypes.h>
 #include <llvm-18/llvm/IR/InstrTypes.h>
 #include <llvm-18/llvm/IR/Instruction.h>
 #include <llvm-18/llvm/IR/Intrinsics.h>
@@ -63,7 +66,14 @@ std::unique_ptr<ast> Parser::ParseFactor() {
   } else if (Peek().type == TokenType::STRING_LITERAL) {
     std::string val = Peek().value;
     Consume();
-    return std::make_unique<StringNode>(val);
+    // return std::make_unique<StringNode>(val);
+    std::vector<std::unique_ptr<ast>> outputs;
+    for (auto &tok : val) {
+      outputs.push_back(std::make_unique<CharNode>(tok));
+    }
+
+    return std::make_unique<ArrayLiteralNode>(
+        llvm::Type::getInt32Ty(*cc.TheContext), std::move(outputs));
 
   } else if (Peek().type == TokenType::LPAREN) {
     Expect(TokenType::LPAREN);
@@ -73,6 +83,25 @@ std::unique_ptr<ast> Parser::ParseFactor() {
     }
     Expect(TokenType::RPAREN);
     return val;
+  } else if (Peek().type == TokenType::LBRACKET) {
+    Expect(TokenType::LBRACKET);
+    std::vector<std::unique_ptr<ast>> elements;
+
+    while (Peek().type != TokenType::RBRACKET) {
+      if (Peek().type == TokenType::EOF_TOKEN) {
+        throw std::runtime_error("Unexpected EOF in array literal");
+      }
+      elements.push_back(ParseExpression());
+      if (Peek().type == TokenType::COMMA) {
+        Consume();
+      } else {
+        break;
+      }
+    }
+
+    Expect(TokenType::RBRACKET);
+    return std::make_unique<ArrayLiteralNode>(nullptr, std::move(elements));
+
   } else if (Peek().type == TokenType::IDENTIFIER) {
     Token name = Peek();
     Consume();
@@ -80,7 +109,7 @@ std::unique_ptr<ast> Parser::ParseFactor() {
     if (Peek().type == EQ) {
       Consume();
       auto val = ParseExpression();
-      // Expect(SEMICOLON);
+      // kxpect(SEMICOLON);
 
       return std::make_unique<AssignmentNode>(name.value, std::move(val));
 
@@ -107,6 +136,15 @@ std::unique_ptr<ast> Parser::ParseFactor() {
       Expect(RPAREN);
 
       return std::make_unique<CallNode>(name.value, std::move(args));
+    } else if (Peek().type == LBRACKET) {
+      Consume();
+      auto val = ParseExpression();
+      if (!dynamic_cast<IntegerNode *>(val.get())) {
+        throw std::runtime_error("Expected a Number, But got");
+      }
+      Expect(RBRACKET);
+
+      return std::make_unique<ArrayAccessNode>(name.value, std::move(val));
     } else {
 
       return std::make_unique<VariableReferenceNode>(name.value);
@@ -160,11 +198,21 @@ std::unique_ptr<ast> Parser::ParseExpression() {
 
   return left;
 }
+
 std::unique_ptr<VariableDeclareNode> Parser::ParseVariable() {
   Expect(TokenType::LET);
   Token name = Expect(TokenType::IDENTIFIER);
   Expect(TokenType::COLON);
   Token type = Expect(TokenType::TYPES);
+  unsigned size = 1;
+
+  if (Peek().type == TokenType::LBRACKET) {
+    Consume();
+    Token somerandomval = Expect(TokenType::INT_LITERAL);
+    Expect(RBRACKET);
+    size += std::stoi(somerandomval.value) - 1;
+  }
+
   std::unique_ptr<ast> val = nullptr;
   if (Peek().type == TokenType::EQ) {
     Consume();
@@ -172,8 +220,8 @@ std::unique_ptr<VariableDeclareNode> Parser::ParseVariable() {
   }
   Expect(TokenType::SEMICOLON);
 
-  return std::make_unique<VariableDeclareNode>(name.value, std::move(val),
-                                               type);
+  return std::make_unique<VariableDeclareNode>(name.value, std::move(val), type,
+                                               size);
 }
 
 std::unique_ptr<FunctionNode> Parser::ParseFunction() {
@@ -347,46 +395,43 @@ std::vector<std::unique_ptr<ast>> Parser::Parse() {
   return output;
 }
 
-// int main() {
-//   std::string src = R"(
-//   func main() -> String {
-// 	let s: String = "Value is yeah";
+int main() {
+  std::string src = R"(
+  func main() -> Void {
+	let s:String[12] = "hello world\0";
+  }
+  )";
 
-// 	return s;
-//   }
-//   )";
+  Lexer lexer(src);
+  auto program = lexer.lexer();
 
-//   Lexer lexer(src);
-//   auto program = lexer.lexer();
+  int stmtNo = 0;
+  for (const auto &stmt : program) {
+    std::cout << "  " << std::setw(12) << tokenName(stmt.type) << " : '"
+              << stmt.value << "'\n";
+  }
 
-//   int stmtNo = 0;
-//   for (const auto &stmt : program) {
-//     std::cout << "  " << std::setw(12) << tokenName(stmt.type) << " : '"
-//               << stmt.value << "'\n";
-//   }
+  std::cout << Colors::BOLD << Colors::RED
+            << "---------------------------------------------------------------"
+               "---------------------------------------------------------------"
+               "---------------------------------------------------------------"
+               "-----------------------"
+            << Colors::RESET << std::endl;
+  Parser parser(program, "MYMODULE");
+  auto val = parser.Parse();
+  for (auto &v : val) {
+    std::cout << v->repr() << std::endl;
+  }
 
-//   std::cout << Colors::BOLD << Colors::RED
-//             <<
-//             "---------------------------------------------------------------"
-//                "---------------------------------------------------------------"
-//                "---------------------------------------------------------------"
-//                "-----------------------"
-//             << Colors::RESET << std::endl;
-//   Parser parser(program, "MYMODULE");
-//   auto val = parser.Parse();
-//   for (auto &v : val) {
-//     std::cout << v->repr() << std::endl;
-//   }
+  CodegenContext cc("YO");
+  for (auto &v : val) {
+    try {
+      v->codegen(cc);
+    } catch (const std::exception &e) {
+      std::cerr << "Codegen error: " << e.what() << std::endl;
+      // Optionally: continue to next node or break
+    }
+  }
 
-//   CodegenContext cc("YO");
-//   for (auto &v : val) {
-//     try {
-//       v->codegen(cc);
-//     } catch (const std::exception &e) {
-//       std::cerr << "Codegen error: " << e.what() << std::endl;
-//       // Optionally: continue to next node or break
-//     }
-//   }
-
-//   cc.Module->print(llvm::outs(), nullptr);
-// }
+  cc.Module->print(llvm::outs(), nullptr);
+}

@@ -2,7 +2,7 @@
 #include <cctype>
 #include <colors.h>
 #include <cstdio>
-#include <iostream>
+#include <iomanip>
 #include <lexer.h>
 #include <string>
 #include <vector>
@@ -85,7 +85,7 @@ std::vector<Token> Lexer::lexer() {
       continue;
     }
 
-    // String literal
+    // // String literal
     if (c == '"') {
       Consume(); // opening "
       std::string val;
@@ -114,7 +114,63 @@ std::vector<Token> Lexer::lexer() {
       out.push_back({STRING_LITERAL, val});
       continue;
     }
+    // Char literal
 
+    if (c == '\'') {
+      Consume(); // opening '
+
+      if (Peek() == '\'' || Peek() == 0) {
+        // empty char literal or EOF → error
+        out.push_back({CHAR_LITERAL, ""});
+        Consume(); // avoid infinite loop if second '
+        continue;
+      }
+
+      char value;
+
+      if (Peek() == '\\') {
+        Consume(); // '\'
+        char esc = Peek();
+
+        switch (esc) {
+        case 'n':
+          value = '\n';
+          break;
+        case 't':
+          value = '\t';
+          break;
+        case '0':
+          value = '\0';
+          break;
+        case '\'':
+          value = '\'';
+          break;
+        case '\\':
+          value = '\\';
+          break;
+        default:
+          value = esc;
+          break;
+        }
+
+        Consume();
+      } else {
+        value = Peek();
+        Consume();
+      }
+
+      if (Peek() != '\'') {
+        // missing closing quote → error
+        out.push_back({CHAR_LITERAL, ""});
+        continue;
+      }
+
+      Consume(); // closing '
+
+      std::string s(1, value);
+      out.push_back({CHAR_LITERAL, s});
+      continue;
+    }
     // Numbers (int or float)
     if (std::isdigit(c)) {
       std::string num;
@@ -372,8 +428,6 @@ const char *tokenName(TokenType t) {
     return "INT_LITERAL";
   case FLOAT_LITERAL:
     return "FLOAT_LITERAL";
-  case STRING_LITERAL:
-    return "STRING_LITERAL";
   case PLUS:
     return "PLUS";
   case MINUS:
@@ -423,9 +477,13 @@ const char *tokenName(TokenType t) {
   case SEMICOLON:
     return "SEMICOLON";
   case LBRACKET:
-	return "LBRACKET";
+    return "LBRACKET";
   case RBRACKET:
-	return "RBRACKET";
+    return "RBRACKET";
+  case CHAR_LITERAL:
+    return "CHAR_LITERAL";
+  case STRING_LITERAL:
+    return "STRING_LITERAL";
   default:
     return "UNKNOWN";
   }
@@ -440,6 +498,7 @@ const char *tokenName(TokenType t) {
 //   let y: Float = 3.14;
 
 //   let y: Integer[2] = [21, 12];
+//   ley something: Char{32} = {'a', 'b', 'c', 'd'. 'e' , '\0'};
 
 //   func add(a: Integer, b: Integer) -> void {
 // 	return a + b;

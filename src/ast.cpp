@@ -16,6 +16,7 @@ std::string BooleanNode::repr() {
   return "BooleanNode(" + std::to_string(val) + ")";
 }
 
+std::string CharNode::repr() { return "CharNode(" + std::string(1, val) + ")"; }
 std::string StringNode::repr() { return "StringNode(" + val + ")"; }
 
 std::string VariableDeclareNode::repr() {
@@ -85,6 +86,6 @@ std::string ForNode::repr() {
   return s;
 }
 
-std::string ArrayLiteralNode::repr() {
-	return "SOME WEIRD SHIT";
-}
+std::string ArrayLiteralNode::repr() { return "SOME WEIRD SHIT"; }
+
+std::string ArrayAccessNode::repr() { return "ARRAY ACCESS NODE"; }

@@ -1,4 +1,5 @@
 #include "lexer.h"
+#include <alloca.h>
 #include <ast.h>
 #include <cctype>
 #include <iostream>
@@ -53,6 +54,12 @@ llvm::Type *GetTypeVoid(Token type, llvm::LLVMContext &context) {
   return GetTypeNonVoid(type, context);
 }
 
+llvm::Value *CharNode::codegen(CodegenContext &cc) {
+  // UNICODE
+  return llvm::ConstantInt::get(llvm::Type::getInt32Ty(*cc.TheContext), val,
+                                false);
+}
+
 llvm::Value *IntegerNode::codegen(CodegenContext &cc) {
 
   return llvm::ConstantInt::get(llvm::Type::getInt32Ty(*cc.TheContext), val,
@@ -70,7 +77,56 @@ llvm::Value *BooleanNode::codegen(CodegenContext &cc) {
 }
 
 llvm::Value *StringNode::codegen(CodegenContext &cc) {
-  return cc.Builder->CreateGlobalStringPtr(val);
+  return llvm::ConstantDataArray::getString(*cc.TheContext, val,
+                                            true); // true = add null terminator
+}
+
+llvm::Value *VariableDeclareNode::codegen(CodegenContext &cc) {
+  llvm::Type *elementType = GetTypeNonVoid(Type, *cc.TheContext);
+  llvm::AllocaInst *alloca = nullptr;
+
+  if (arraySize.has_value() && Type.value == "STRING") {
+    std::cout << "COMMING HERE" << std::endl;
+    elementType = llvm::Type::getInt8Ty(*cc.TheContext);
+  }
+
+  if (arraySize.has_value()) {
+    llvm::ArrayType *arrayType = llvm::ArrayType::get(elementType, *arraySize);
+    alloca = cc.Builder->CreateAlloca(arrayType, nullptr, name);
+
+    if (val) {
+      // val is ArrayLiteralNode
+      ArrayLiteralNode *arrayNode = dynamic_cast<ArrayLiteralNode *>(val.get());
+      if (arrayNode) {
+        // store each element into 'alloca'
+        for (size_t i = 0; i < arrayNode->Elements.size(); i++) {
+          llvm::Value *elemVal = arrayNode->Elements[i]->codegen(cc);
+          llvm::Value *gep = cc.Builder->CreateGEP(
+              arrayType, alloca,
+              {cc.Builder->getInt32(0), cc.Builder->getInt32(i)}, "elemptr");
+          cc.Builder->CreateStore(elemVal, gep);
+        }
+      }
+    } else {
+      // initialize to zeros
+      for (unsigned i = 0; i < *arraySize; ++i) {
+        llvm::Value *gep = cc.Builder->CreateGEP(
+            arrayType, alloca,
+            {cc.Builder->getInt32(0), cc.Builder->getInt32(i)});
+        llvm::Value *zero = llvm::ConstantInt::get(elementType, 0);
+        cc.Builder->CreateStore(zero, gep);
+      }
+    }
+  } else {
+    // scalar variable
+    alloca = cc.Builder->CreateAlloca(elementType, nullptr, name);
+    llvm::Value *initVal =
+        val ? val->codegen(cc) : llvm::ConstantInt::get(elementType, 0);
+    cc.Builder->CreateStore(initVal, alloca);
+  }
+
+  cc.addVariable(name, alloca);
+  return alloca;
 }
 
 // llvm::Value *VariableDeclareNode::codegen(CodegenContext &cc) {
@@ -93,53 +149,6 @@ llvm::Value *StringNode::codegen(CodegenContext &cc) {
 //   cc.addVariable(name, alloca);
 //   return alloca;
 // }
-
-llvm::Value *VariableDeclareNode::codegen(CodegenContext &cc) {
-  llvm::Type *llvmType = GetTypeNonVoid(Type, *cc.TheContext);
-
-  if (!cc.Builder->GetInsertBlock())
-    std::cout << "NO INSERT BLOCK\n";
-
-  llvm::AllocaInst *alloca;
-
-  // if it's an array
-  if (arraySize.has_value()) {
-    llvm::Value *sizeVal = llvm::ConstantInt::get(
-        llvm::Type::getInt32Ty(*cc.TheContext), arraySize.value());
-    alloca = cc.Builder->CreateAlloca(llvmType, sizeVal, name);
-
-    // initialize if val exists and is an array literal
-    if (val) {
-      auto *arrayLiteral = dynamic_cast<ArrayLiteralNode *>(val.get());
-      if (arrayLiteral) {
-        for (unsigned i = 0; i < arrayLiteral->Elements.size(); i++) {
-          llvm::Value *elemVal = arrayLiteral->Elements[i]->codegen(cc);
-          llvm::Value *elemPtr = cc.Builder->CreateGEP(
-              llvmType, // type of each element
-              alloca,   // pointer to the array
-              {llvm::ConstantInt::get(llvm::Type::getInt32Ty(*cc.TheContext),
-                                      i)}, // indices as ArrayRef
-              name + "_elem");
-
-          cc.Builder->CreateStore(elemVal, elemPtr);
-        }
-      }
-    }
-  } else {
-    // single variable
-    alloca = cc.Builder->CreateAlloca(llvmType, nullptr, name);
-    if (val) {
-      llvm::Value *initVal = val->codegen(cc);
-      cc.Builder->CreateStore(initVal, alloca);
-    } else {
-      llvm::Value *zero = llvm::Constant::getNullValue(llvmType);
-      cc.Builder->CreateStore(zero, alloca);
-    }
-  }
-
-  cc.addVariable(name, alloca);
-  return alloca;
-}
 
 llvm::Value *AssignmentNode::codegen(CodegenContext &cc) {
   llvm::Value *var = cc.lookup(name);
@@ -528,79 +537,113 @@ llvm::Value *ArrayLiteralNode::codegen(CodegenContext &cc) {
     cc.Builder->CreateStore(elemVal, gep);
   }
 
-  return arrayAlloc;
+  return nullptr;
 }
 
-int main() {
-  CodegenContext ctx("myprogram");
-  ctx.pushScope(); // Start Global Scope
+llvm::Value *ArrayAccessNode::codegen(CodegenContext &cc) {
+  // Your lookup returns llvm::Value*
+  llvm::Value *arrayPtr = cc.lookup(arrayName);
 
-  // --- First compound for "random" function ---
-  std::vector<std::unique_ptr<ast>> vals;
+  if (!arrayPtr)
+    throw std::runtime_error("Unknown array: " + arrayName);
 
-  vals.push_back(std::make_unique<VariableDeclareNode>(
-      "val2", std::make_unique<VariableReferenceNode>("val1"),
-      Token{TokenType::TYPES, "INTEGER"}));
+  // It must be an alloca
+  auto *allocaInst = llvm::dyn_cast<llvm::AllocaInst>(arrayPtr);
+  if (!allocaInst)
+    throw std::runtime_error(arrayName + " is not an array variable");
 
-  vals.push_back(std::make_unique<WhileNode>(
-      std::make_unique<VariableReferenceNode>("val2"),
-      std::make_unique<ContinueNode>()));
+  // This works even with opaque pointers
+  llvm::Type *arrayType = allocaInst->getAllocatedType();
 
-  vals.push_back(std::make_unique<IfNode>(
-      std::make_unique<VariableReferenceNode>("val2"),
-      std::make_unique<IntegerNode>(21), std::make_unique<IntegerNode>(32)));
+  if (!arrayType->isArrayTy())
+    throw std::runtime_error(arrayName + " is not an array");
 
-  vals.push_back(
-      std::make_unique<ReturnNode>(std::make_unique<BinaryOperationNode>(
-          TokenType::GTE, std::make_unique<VariableReferenceNode>("val1"),
-          std::make_unique<VariableReferenceNode>("val2"))));
+  llvm::Value *indexVal = indexExpr->codegen(cc);
 
-  auto compoundRandom = std::make_unique<CompoundNode>(std::move(vals));
+  if (!indexVal->getType()->isIntegerTy())
+    throw std::runtime_error("Array index must be integer");
 
-  std::vector<std::pair<std::string, llvm::Type *>> typeRandom = {
-      {"val1", llvm::Type::getInt32Ty(*ctx.TheContext)}};
+  llvm::IRBuilder<> &builder = *cc.Builder;
 
-  auto RandomFunction = std::make_unique<FunctionNode>(
-      "random", typeRandom, std::move(compoundRandom),
-      Token{TokenType::TYPES, "INTEGER"});
+  // GEP [0, index]
+  llvm::Value *elemPtr =
+      builder.CreateGEP(arrayType, arrayPtr, {builder.getInt32(0), indexVal},
+                        arrayName + "_elem_ptr");
 
-  // --- Second compound for "main" function ---
-  std::vector<std::unique_ptr<ast>> anothervals;
+  llvm::Type *elementType = arrayType->getArrayElementType();
 
-  anothervals.push_back(std::make_unique<VariableDeclareNode>(
-      "val1", std::make_unique<IntegerNode>(21),
-      Token{TokenType::TYPES, "INTEGER"}));
-
-  // Prepare arguments vector separately to move unique_ptrs
-  std::vector<std::unique_ptr<ast>> callArgs;
-  callArgs.push_back(std::make_unique<VariableReferenceNode>("val1"));
-
-  anothervals.push_back(
-      std::make_unique<CallNode>("random", std::move(callArgs)));
-
-  std::vector<std::unique_ptr<ast>> elements;
-  elements.push_back(std::make_unique<IntegerNode>(21));
-  elements.push_back(std::make_unique<IntegerNode>(21));
-  elements.push_back(std::make_unique<IntegerNode>(21));
-
-  anothervals.push_back(std::make_unique<ArrayLiteralNode>(
-      llvm::Type::getInt32Ty(*ctx.TheContext), std::move(elements)));
-
-  auto anotherCompound =
-  std::make_unique<CompoundNode>(std::move(anothervals));
-
-  auto Function = std::make_unique<FunctionNode>(
-      "main", typeRandom, std::move(anotherCompound),
-      Token{TokenType::TYPES, "INTEGER"});
-
-  // --- Codegen ---
-
-  RandomFunction->codegen(ctx);
-  Function->codegen(ctx);
-
-  ctx.Module->print(llvm::errs(), nullptr);
-
-  ctx.popScope(); // End Global Scope
-  return 0;
+  return builder.CreateLoad(elementType, elemPtr, arrayName + "_elem");
 }
 
+// int main() {
+//   CodegenContext ctx("myprogram");
+//   ctx.pushScope(); // Start Global Scope
+
+//   // --- First compound for "random" function ---
+//   std::vector<std::unique_ptr<ast>> vals;
+
+//   vals.push_back(std::make_unique<VariableDeclareNode>(
+//       "val2", std::make_unique<VariableReferenceNode>("val1"),
+//       Token{TokenType::TYPES, "INTEGER"}));
+
+//   vals.push_back(std::make_unique<WhileNode>(
+//       std::make_unique<VariableReferenceNode>("val2"),
+//       std::make_unique<ContinueNode>()));
+
+//   vals.push_back(std::make_unique<IfNode>(
+//       std::make_unique<VariableReferenceNode>("val2"),
+//       std::make_unique<IntegerNode>(21), std::make_unique<IntegerNode>(32)));
+
+//   vals.push_back(
+//       std::make_unique<ReturnNode>(std::make_unique<BinaryOperationNode>(
+//           TokenType::GTE, std::make_unique<VariableReferenceNode>("val1"),
+//           std::make_unique<VariableReferenceNode>("val2"))));
+
+//   auto compoundRandom = std::make_unique<CompoundNode>(std::move(vals));
+
+//   std::vector<std::pair<std::string, llvm::Type *>> typeRandom = {
+//       {"val1", llvm::Type::getInt32Ty(*ctx.TheContext)}};
+
+//   auto RandomFunction = std::make_unique<FunctionNode>(
+//       "random", typeRandom, std::move(compoundRandom),
+//       Token{TokenType::TYPES, "INTEGER"});
+
+//   // --- Second compound for "main" function ---
+//   std::vector<std::unique_ptr<ast>> anothervals;
+
+//   anothervals.push_back(std::make_unique<VariableDeclareNode>(
+//       "val1", std::make_unique<IntegerNode>(21),
+//       Token{TokenType::TYPES, "INTEGER"}));
+
+//   // Prepare arguments vector separately to move unique_ptrs
+//   std::vector<std::unique_ptr<ast>> callArgs;
+//   callArgs.push_back(std::make_unique<VariableReferenceNode>("val1"));
+
+//   anothervals.push_back(
+//       std::make_unique<CallNode>("random", std::move(callArgs)));
+
+//   std::vector<std::unique_ptr<ast>> elements;
+//   elements.push_back(std::make_unique<CharNode>('a'));
+//   elements.push_back(std::make_unique<CharNode>('b'));
+//   elements.push_back(std::make_unique<CharNode>('c'));
+
+//   anothervals.push_back(std::make_unique<ArrayLiteralNode>(
+//       llvm::Type::getInt32Ty(*ctx.TheContext), std::move(elements)));
+
+//   auto anotherCompound =
+//   std::make_unique<CompoundNode>(std::move(anothervals));
+
+//   auto Function = std::make_unique<FunctionNode>(
+//       "main", typeRandom, std::move(anotherCompound),
+//       Token{TokenType::TYPES, "INTEGER"});
+
+//   // --- Codegen ---
+
+//   RandomFunction->codegen(ctx);
+//   Function->codegen(ctx);
+
+//   ctx.Module->print(llvm::errs(), nullptr);
+
+//   ctx.popScope(); // End Global Scope
+//   return 0;
+// }

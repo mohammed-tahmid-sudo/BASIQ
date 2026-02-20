@@ -50,6 +50,14 @@ struct ast {
   virtual llvm::Value *codegen(CodegenContext &cc) = 0;
 };
 
+struct CharNode : ast {
+  char val;
+
+  CharNode(char value) : val(value) {}
+  std::string repr() override;
+  llvm::Value *codegen(CodegenContext &cc) override;
+};
+
 struct IntegerNode : ast {
   int val;
   IntegerNode(const int v) : val(v) {}
@@ -225,6 +233,17 @@ struct ArrayLiteralNode : ast {
   ArrayLiteralNode(llvm::Type *elemType,
                    std::vector<std::unique_ptr<ast>> elements)
       : ElementType(elemType), Elements(std::move(elements)) {}
+
+  std::string repr() override;
+  llvm::Value *codegen(CodegenContext &cc) override;
+};
+
+struct ArrayAccessNode : ast {
+  std::string arrayName;
+  std::unique_ptr<ast> indexExpr;
+
+  ArrayAccessNode(const std::string &name, std::unique_ptr<ast> index)
+      : arrayName(name), indexExpr(std::move(index)) {}
 
   std::string repr() override;
   llvm::Value *codegen(CodegenContext &cc) override;

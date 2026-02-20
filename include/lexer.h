@@ -19,16 +19,13 @@ enum TokenType {
   WHILE,
   CLASS,
   TYPES,
-  // INTEGER,
-  // FLOAT,
-  // BOOLEAN,
-  // STRING,
-  // VOID,
+
   IDENTIFIER,
 
   // Literals
   INT_LITERAL,
   FLOAT_LITERAL,
+  CHAR_LITERAL,
   STRING_LITERAL,
   BOOLEAN_LITERAL,
 
@@ -61,6 +58,7 @@ enum TokenType {
   // End of file
   EOF_TOKEN
 };
+
 const char *tokenName(TokenType t);
 
 struct Token {

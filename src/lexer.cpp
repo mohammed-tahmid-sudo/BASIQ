@@ -2,7 +2,6 @@
 #include <cctype>
 #include <colors.h>
 #include <cstdio>
-#include <iomanip>
 #include <lexer.h>
 #include <string>
 #include <vector>
@@ -116,61 +115,61 @@ std::vector<Token> Lexer::lexer() {
     }
     // Char literal
 
-    if (c == '\'') {
-      Consume(); // opening '
+    // if (c == '\'') {
+    //   Consume(); // opening '
 
-      if (Peek() == '\'' || Peek() == 0) {
-        // empty char literal or EOF → error
-        out.push_back({CHAR_LITERAL, ""});
-        Consume(); // avoid infinite loop if second '
-        continue;
-      }
+    //   if (Peek() == '\'' || Peek() == 0) {
+    //     // empty char literal or EOF → error
+    //     out.push_back({CHAR_LITERAL, ""});
+    //     Consume(); // avoid infinite loop if second '
+    //     continue;
+    //   }
 
-      char value;
+    //   char value;
 
-      if (Peek() == '\\') {
-        Consume(); // '\'
-        char esc = Peek();
+    //   if (Peek() == '\\') {
+    //     Consume(); // '\'
+    //     char esc = Peek();
 
-        switch (esc) {
-        case 'n':
-          value = '\n';
-          break;
-        case 't':
-          value = '\t';
-          break;
-        case '0':
-          value = '\0';
-          break;
-        case '\'':
-          value = '\'';
-          break;
-        case '\\':
-          value = '\\';
-          break;
-        default:
-          value = esc;
-          break;
-        }
+    //     switch (esc) {
+    //     case 'n':
+    //       value = '\n';
+    //       break;
+    //     case 't':
+    //       value = '\t';
+    //       break;
+    //     case '0':
+    //       value = '\0';
+    //       break;
+    //     case '\'':
+    //       value = '\'';
+    //       break;
+    //     case '\\':
+    //       value = '\\';
+    //       break;
+    //     default:
+    //       value = esc;
+    //       break;
+    //     }
 
-        Consume();
-      } else {
-        value = Peek();
-        Consume();
-      }
+    //     Consume();
+    //   } else {
+    //     value = Peek();
+    //     Consume();
+    //   }
 
-      if (Peek() != '\'') {
-        // missing closing quote → error
-        out.push_back({CHAR_LITERAL, ""});
-        continue;
-      }
+    //   if (Peek() != '\'') {
+    //     // missing closing quote → error
+    //     out.push_back({CHAR_LITERAL, ""});
+    //     continue;
+    //   }
 
-      Consume(); // closing '
+    //   Consume(); // closing '
 
-      std::string s(1, value);
-      out.push_back({CHAR_LITERAL, s});
-      continue;
-    }
+    //   std::string s(1, value);
+    //   out.push_back({CHAR_LITERAL, s});
+    //   continue;
+    // }
     // Numbers (int or float)
     if (std::isdigit(c)) {
       std::string num;
@@ -248,7 +247,7 @@ std::vector<Token> Lexer::lexer() {
 
       // Types (case-sensitive as per grammar: Integer, Float, Boolean, String)
       if (id == "Integer" || id == "Float" || id == "Boolean" ||
-          id == "String" || id == "Void") {
+          id == "String" || id == "Void" || id == "Char") {
         out.push_back({TYPES, id});
         continue;
       }
@@ -480,8 +479,6 @@ const char *tokenName(TokenType t) {
     return "LBRACKET";
   case RBRACKET:
     return "RBRACKET";
-  case CHAR_LITERAL:
-    return "CHAR_LITERAL";
   case STRING_LITERAL:
     return "STRING_LITERAL";
   default:

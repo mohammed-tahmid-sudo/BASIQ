@@ -3,6 +3,7 @@
 #include <cctype>
 #include <colors.h>
 #include <iomanip>
+#include <iostream>
 #include <llvm-18/llvm/IR/DerivedTypes.h>
 #include <llvm-18/llvm/IR/InstrTypes.h>
 #include <llvm-18/llvm/IR/Instruction.h>
@@ -55,7 +56,13 @@ std::unique_ptr<ast> Parser::ParseFactor() {
 
   } else if (Peek().type == TokenType::BOOLEAN_LITERAL) {
 
-    if (Peek().value == "true") {
+    Token tok = Peek();
+
+    for (auto &val : tok.value) {
+      val = std::toupper(static_cast<unsigned char>(val));
+    }
+
+    if (tok.value == "TRUE") {
       Consume();
       return std::make_unique<BooleanNode>(true);
     }
@@ -72,6 +79,10 @@ std::unique_ptr<ast> Parser::ParseFactor() {
       outputs.push_back(std::make_unique<CharNode>(tok));
     }
 
+    if (!outputs.empty() &&
+        static_cast<CharNode *>(outputs.back().get())->val != '\0') {
+      outputs.push_back(std::make_unique<CharNode>(0));
+    }
     return std::make_unique<ArrayLiteralNode>(
         llvm::Type::getInt32Ty(*cc.TheContext), std::move(outputs));
 
@@ -109,6 +120,7 @@ std::unique_ptr<ast> Parser::ParseFactor() {
     if (Peek().type == EQ) {
       Consume();
       auto val = ParseExpression();
+
       // kxpect(SEMICOLON);
 
       return std::make_unique<AssignmentNode>(name.value, std::move(val));
@@ -142,14 +154,21 @@ std::unique_ptr<ast> Parser::ParseFactor() {
       if (!dynamic_cast<IntegerNode *>(val.get())) {
         throw std::runtime_error("Expected a Number, But got");
       }
+      std::cout << val->repr() << std::endl;
       Expect(RBRACKET);
 
       return std::make_unique<ArrayAccessNode>(name.value, std::move(val));
     } else {
-
       return std::make_unique<VariableReferenceNode>(name.value);
     }
 
+  } else if (Peek().type == CHAR_LITERAL) {
+    Token val = Consume();
+    if (val.value.size() < 1) {
+      throw std::runtime_error("Expected a single value as a char but got" +
+                               std::to_string(val.value.size()));
+    }
+    return std::make_unique<CharNode>(val.value[0]);
   } else {
     if (Peek().type == SEMICOLON) {
       return nullptr; // just signal “no factor here”
@@ -217,7 +236,16 @@ std::unique_ptr<VariableDeclareNode> Parser::ParseVariable() {
   if (Peek().type == TokenType::EQ) {
     Consume();
     val = ParseExpression();
+
+    if (auto arrNode = dynamic_cast<ArrayLiteralNode *>(val.get())) {
+      if (arrNode->Elements.size() > size) {
+        throw std::runtime_error("Array size mismatch: declared size " +
+                                 std::to_string(size) + ", got " +
+                                 std::to_string(arrNode->Elements.size()));
+      }
+    }
   }
+
   Expect(TokenType::SEMICOLON);
 
   return std::make_unique<VariableDeclareNode>(name.value, std::move(val), type,
@@ -229,12 +257,38 @@ std::unique_ptr<FunctionNode> Parser::ParseFunction() {
   Token name = Expect(TokenType::IDENTIFIER);
   Expect(LPAREN);
   std::vector<std::pair<std::string, llvm::Type *>> args;
+  // while (Peek().type != RPAREN) {
+  //   Token peramName = Expect(IDENTIFIER);
+  //   Expect(COLON);
+  //   Token type = Expect(TYPES);
+  //   args.push_back(
+  //       std::make_pair(peramName.value, GetTypeVoid(type, *cc.TheContext)));
+
+  //   if (Peek().type == COMMA) {
+  //     Consume();
+  //   } else {
+  //     break;
+  //   }
+  // }
+
   while (Peek().type != RPAREN) {
-    Token peramName = Expect(IDENTIFIER);
+    Token paramName = Expect(IDENTIFIER);
     Expect(COLON);
     Token type = Expect(TYPES);
-    args.push_back(
-        std::make_pair(peramName.value, GetTypeVoid(type, *cc.TheContext)));
+    llvm::Type *llvmType = GetTypeVoid(type, *cc.TheContext);
+
+    unsigned arraySize = 0;
+    if (Peek().type == LBRACKET) {
+      Consume();
+      Token sizeTok = Expect(INT_LITERAL);
+      arraySize = std::stoi(sizeTok.value);
+      Expect(RBRACKET);
+
+      // Create LLVM array type
+      llvmType = llvm::ArrayType::get(llvmType, arraySize);
+    }
+
+    args.push_back({paramName.value, llvmType});
 
     if (Peek().type == COMMA) {
       Consume();
@@ -397,8 +451,21 @@ std::vector<std::unique_ptr<ast>> Parser::Parse() {
 
 int main() {
   std::string src = R"(
-  func main() -> Void {
-	let s:String[12] = "hello world\0";
+  func random(a:Char[2]) -> Boolean {
+	if a == ["1", "\0"] {
+		return True;
+	}
+	return False;
+  }
+  func main() -> Integer {
+
+  let a:Char[2] = ["1", "\0"]; 
+
+  if (random(a) == True) {
+	return 1;
+  } else { 
+	return 0;
+  }
   }
   )";
 
@@ -419,9 +486,9 @@ int main() {
             << Colors::RESET << std::endl;
   Parser parser(program, "MYMODULE");
   auto val = parser.Parse();
-  for (auto &v : val) {
-    std::cout << v->repr() << std::endl;
-  }
+  // for (auto &v : val) {
+  //   std::cout << v->repr() << std::endl;
+  // }
 
   CodegenContext cc("YO");
   for (auto &v : val) {

@@ -40,7 +40,10 @@ llvm::Type *GetTypeNonVoid(Token type, llvm::LLVMContext &context) {
     return llvm::PointerType::get(llvm::Type::getInt8Ty(context), false);
   } else if (type.value == "BOOLEAN") {
     return llvm::Type::getInt1Ty(context);
+  } else if (type.value == "CHAR") {
+    return llvm::Type::getInt32Ty(context);
   }
+  throw std::runtime_error("Invalid Type: " + type.value);
   return nullptr;
 }
 
@@ -85,21 +88,18 @@ llvm::Value *VariableDeclareNode::codegen(CodegenContext &cc) {
   llvm::Type *elementType = GetTypeNonVoid(Type, *cc.TheContext);
   llvm::AllocaInst *alloca = nullptr;
 
-  if (arraySize.has_value() && Type.value == "STRING") {
-    std::cout << "COMMING HERE" << std::endl;
-    elementType = llvm::Type::getInt8Ty(*cc.TheContext);
-  }
+  if (!cc.Builder->GetInsertBlock())
+    std::cout << "NO INSERT BLOCK\n";
 
-  if (arraySize.has_value()) {
+  // Treat arrays with size > 1 as real arrays
+  if (arraySize.has_value() && *arraySize > 1) {
     llvm::ArrayType *arrayType = llvm::ArrayType::get(elementType, *arraySize);
     alloca = cc.Builder->CreateAlloca(arrayType, nullptr, name);
 
     if (val) {
-      // val is ArrayLiteralNode
       ArrayLiteralNode *arrayNode = dynamic_cast<ArrayLiteralNode *>(val.get());
       if (arrayNode) {
-        // store each element into 'alloca'
-        for (size_t i = 0; i < arrayNode->Elements.size(); i++) {
+        for (size_t i = 0; i < arrayNode->Elements.size(); ++i) {
           llvm::Value *elemVal = arrayNode->Elements[i]->codegen(cc);
           llvm::Value *gep = cc.Builder->CreateGEP(
               arrayType, alloca,
@@ -108,7 +108,6 @@ llvm::Value *VariableDeclareNode::codegen(CodegenContext &cc) {
         }
       }
     } else {
-      // initialize to zeros
       for (unsigned i = 0; i < *arraySize; ++i) {
         llvm::Value *gep = cc.Builder->CreateGEP(
             arrayType, alloca,
@@ -117,17 +116,65 @@ llvm::Value *VariableDeclareNode::codegen(CodegenContext &cc) {
         cc.Builder->CreateStore(zero, gep);
       }
     }
+
   } else {
-    // scalar variable
+    // Scalar or single-element array treated as scalar
     alloca = cc.Builder->CreateAlloca(elementType, nullptr, name);
     llvm::Value *initVal =
-        val ? val->codegen(cc) : llvm::ConstantInt::get(elementType, 0);
+        val ? val->codegen(cc) : llvm::Constant::getNullValue(elementType);
     cc.Builder->CreateStore(initVal, alloca);
   }
 
   cc.addVariable(name, alloca);
   return alloca;
 }
+
+// llvm::Value *VariableDeclareNode::codegen(CodegenContext &cc) {
+//   llvm::Type *elementType = GetTypeNonVoid(Type, *cc.TheContext);
+//   llvm::AllocaInst *alloca = nullptr;
+
+//   // if (arraySize.has_value() && Type.value == "STRING") {
+//   //   elementType = llvm::Type::getInt8Ty(*cc.TheContext);
+//   // }
+
+//   if (arraySize.has_value()) {
+//     llvm::ArrayType *arrayType = llvm::ArrayType::get(elementType,
+//     *arraySize); alloca = cc.Builder->CreateAlloca(arrayType, nullptr, name);
+
+//     if (val) {
+//       // val is ArrayLiteralNode
+//       ArrayLiteralNode *arrayNode = dynamic_cast<ArrayLiteralNode
+//       *>(val.get()); if (arrayNode) {
+//         // store each element into 'alloca'
+//         for (size_t i = 0; i < arrayNode->Elements.size(); i++) {
+//           llvm::Value *elemVal = arrayNode->Elements[i]->codegen(cc);
+//           llvm::Value *gep = cc.Builder->CreateGEP(
+//               arrayType, alloca,
+//              {cc.Builder->getInt32(0), cc.Builder->getInt32(i)}, "elemptr");
+//           cc.Builder->CreateStore(elemVal, gep);
+//         }
+//       }
+//     } else {
+//       // initialize to zeros
+//       for (unsigned i = 0; i < *arraySize; ++i) {
+//         llvm::Value *gep = cc.Builder->CreateGEP(
+//             arrayType, alloca,
+//             {cc.Builder->getInt32(0), cc.Builder->getInt32(i)});
+//         llvm::Value *zero = llvm::ConstantInt::get(elementType, 0);
+//         cc.Builder->CreateStore(zero, gep);
+//       }
+//     }
+//   } else {
+//     // scalar variable
+//     alloca = cc.Builder->CreateAlloca(elementType, nullptr, name);
+//     llvm::Value *initVal =
+//         val ? val->codegen(cc) : llvm::ConstantInt::get(elementType, 0);
+//     cc.Builder->CreateStore(initVal, alloca);
+//   }
+
+//   cc.addVariable(name, alloca);
+//   return alloca;
+// }
 
 // llvm::Value *VariableDeclareNode::codegen(CodegenContext &cc) {
 //   llvm::Type *llvmType = GetTypeNonVoid(Type, *cc.TheContext);
@@ -541,39 +588,77 @@ llvm::Value *ArrayLiteralNode::codegen(CodegenContext &cc) {
 }
 
 llvm::Value *ArrayAccessNode::codegen(CodegenContext &cc) {
-  // Your lookup returns llvm::Value*
   llvm::Value *arrayPtr = cc.lookup(arrayName);
-
+	
   if (!arrayPtr)
     throw std::runtime_error("Unknown array: " + arrayName);
 
-  // It must be an alloca
-  auto *allocaInst = llvm::dyn_cast<llvm::AllocaInst>(arrayPtr);
-  if (!allocaInst)
-    throw std::runtime_error(arrayName + " is not an array variable");
+  llvm::Type *arrayType = nullptr;
 
-  // This works even with opaque pointers
-  llvm::Type *arrayType = allocaInst->getAllocatedType();
+  if (auto *allocaInst = llvm::dyn_cast<llvm::AllocaInst>(arrayPtr)) {
+    arrayType = allocaInst->getAllocatedType();
+  } else if (auto *globalVar = llvm::dyn_cast<llvm::GlobalVariable>(arrayPtr)) {
+    arrayType = globalVar->getValueType();
+  } else {
+    throw std::runtime_error(arrayName + " is not a valid array variable");
+  }
 
   if (!arrayType->isArrayTy())
     throw std::runtime_error(arrayName + " is not an array");
 
-  llvm::Value *indexVal = indexExpr->codegen(cc);
+  llvm::IRBuilder<> &builder = *cc.Builder;
 
+  llvm::Value *indexVal = indexExpr->codegen(cc);
   if (!indexVal->getType()->isIntegerTy())
     throw std::runtime_error("Array index must be integer");
 
-  llvm::IRBuilder<> &builder = *cc.Builder;
+  if (indexVal->getType() != builder.getInt32Ty())
+    indexVal = builder.CreateIntCast(indexVal, builder.getInt32Ty(), true);
 
-  // GEP [0, index]
   llvm::Value *elemPtr =
       builder.CreateGEP(arrayType, arrayPtr, {builder.getInt32(0), indexVal},
                         arrayName + "_elem_ptr");
 
   llvm::Type *elementType = arrayType->getArrayElementType();
 
+  // Important: return the *loaded value*, not just the pointer
   return builder.CreateLoad(elementType, elemPtr, arrayName + "_elem");
 }
+
+// llvm::Value *ArrayAccessNode::codegen(CodegenContext &cc) {
+//   // Your lookup returns llvm::Value*
+//   llvm::Value *arrayPtr = cc.lookup(arrayName);
+
+//   if (!arrayPtr)
+//     throw std::runtime_error("Unknown array: " + arrayName);
+
+//   // It must be an alloca
+//   auto *allocaInst = llvm::dyn_cast<llvm::AllocaInst>(arrayPtr);
+//   if (!allocaInst)
+//     throw std::runtime_error(arrayName + " is not an array variable");
+
+//   // This works even with opaque pointers
+//   llvm::Type *arrayType = allocaInst->getAllocatedType();
+
+//   if (!arrayType->isArrayTy())
+//     throw std::runtime_error(arrayName + " is not an array");
+
+//   llvm::Value *indexVal = indexExpr->codegen(cc);
+
+//   if (!indexVal->getType()->isIntegerTy())
+//     throw std::runtime_error("Array index must be integer");
+
+//   llvm::IRBuilder<> &builder = *cc.Builder;
+
+//   // GEP [0, index]
+//   llvm::Value *elemPtr =
+//       builder.CreateGEP(arrayType, arrayPtr, {builder.getInt32(0), indexVal},
+//                         arrayName + "_elem_ptr");
+
+//   llvm::Type *elementType = arrayType->getArrayElementType();
+
+//   return builder.CreateLoad(elementType, elemPtr, arrayName + "_elem");
+// }
 
 // int main() {
 //   CodegenContext ctx("myprogram");

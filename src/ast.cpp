@@ -16,13 +16,16 @@ std::string BooleanNode::repr() {
   return "BooleanNode(" + std::to_string(val) + ")";
 }
 
-std::string CharNode::repr() { return "CharNode(" + std::string(1, val) + ")"; }
+std::string CharNode::repr() {
+  return "CharNode(" + std::to_string((int)val) + ")";
+}
 std::string StringNode::repr() { return "StringNode(" + val + ")"; }
 
 std::string VariableDeclareNode::repr() {
-  return "VariableDeclareNode(name= " + name +
-         " ,value=" + (val ? val->repr() : "null") + ", Type=" + Type.value +
-         ")";
+  return "VariableDeclareNode(name=" + name +
+         ", value=" + (val ? val->repr() : "null") +
+         ", Type=" + Type.value + // if Type.value is numeric
+         ", Size=" + std::to_string(arraySize.value_or(1)) + ")";
 }
 
 std::string AssignmentNode::repr() {
@@ -88,4 +91,6 @@ std::string ForNode::repr() {
 
 std::string ArrayLiteralNode::repr() { return "SOME WEIRD SHIT"; }
 
-std::string ArrayAccessNode::repr() { return "ARRAY ACCESS NODE"; }
+std::string ArrayAccessNode::repr() {
+  return "ArrayAccesNode(Name=" + arrayName + ", location=" + indexExpr->repr();
+}

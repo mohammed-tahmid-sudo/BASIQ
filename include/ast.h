@@ -93,7 +93,7 @@ struct VariableDeclareNode : ast {
   std::optional<unsigned> arraySize; // new: size if it's an array
 
   VariableDeclareNode(const std::string &n, std::unique_ptr<ast> v, Token t,
-                      std::optional<unsigned> size = std::nullopt)
+                      std::optional<unsigned> size = 1)
       : name(n), val(std::move(v)), Type(t), arraySize(size) {}
 
   std::string repr() override;

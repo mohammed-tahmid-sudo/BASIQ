@@ -70,23 +70,42 @@ std::unique_ptr<ast> Parser::ParseFactor() {
     Consume();
     return std::make_unique<BooleanNode>(false);
 
-  } else if (Peek().type == TokenType::STRING_LITERAL) {
+    // } else if (Peek().type == TokenType::STRING_LITERAL) {
+    //   std::string val = Peek().value;
+    //   Consume();
+    //   // return std::make_unique<StringNode>(val);
+    //   std::vector<std::unique_ptr<ast>> outputs;
+    //   for (auto &tok : val) {
+    //     outputs.push_back(std::make_unique<CharNode>(tok));
+    //   }
+
+    //   if (!outputs.empty() &&
+    //       static_cast<CharNode *>(outputs.back().get())->val != '\0') {
+    //     outputs.push_back(std::make_unique<CharNode>(0));
+    //   }
+    //   return std::make_unique<ArrayLiteralNode>(
+    //       llvm::Type::getInt32Ty(*cc.TheContext), std::move(outputs));
+  } else if (Peek().type == STRING_LITERAL) {
     std::string val = Peek().value;
     Consume();
-    // return std::make_unique<StringNode>(val);
+    if (val.size() == 1) { // treat single-character strings as Char
+      return std::make_unique<CharNode>(val[0]);
+    }
+
+    // multi-character strings become arrays
     std::vector<std::unique_ptr<ast>> outputs;
     for (auto &tok : val) {
       outputs.push_back(std::make_unique<CharNode>(tok));
     }
-
     if (!outputs.empty() &&
         static_cast<CharNode *>(outputs.back().get())->val != '\0') {
       outputs.push_back(std::make_unique<CharNode>(0));
     }
     return std::make_unique<ArrayLiteralNode>(
         llvm::Type::getInt32Ty(*cc.TheContext), std::move(outputs));
+  }
 
-  } else if (Peek().type == TokenType::LPAREN) {
+  else if (Peek().type == TokenType::LPAREN) {
     Expect(TokenType::LPAREN);
     auto val = ParseExpression();
     if (!val) {
@@ -183,7 +202,8 @@ std::unique_ptr<ast> Parser::ParseTerm() {
   std::unique_ptr<ast> left = ParseFactor();
   while (Peek().type == TokenType::STAR || Peek().type == TokenType::SLASH ||
          Peek().type == TokenType::GT || Peek().type == GTE ||
-         Peek().type == LT || Peek().type == LTE || Peek().type == EQEQ) {
+         Peek().type == LT || Peek().type == LTE || Peek().type == EQEQ ||
+         Peek().type == AND) {
     TokenType type = Peek().type;
     Consume();
 
@@ -452,21 +472,18 @@ std::vector<std::unique_ptr<ast>> Parser::Parse() {
 int main() {
   std::string src = R"(
   func random(a:Char[2]) -> Boolean {
-	if a == ["1", "\0"] {
+	if a[0] == "1"  {
 		return True;
 	}
 	return False;
   }
+
   func main() -> Integer {
+	  let a:Char[2] = "1"; 
+	  let a:Boolean = random(a);
 
-  let a:Char[2] = ["1", "\0"]; 
-
-  if (random(a) == True) {
-	return 1;
-  } else { 
-	return 0;
-  }
-  }
+	  return 0; 
+	  }
   )";
 
   Lexer lexer(src);
@@ -490,7 +507,8 @@ int main() {
   //   std::cout << v->repr() << std::endl;
   // }
 
-  CodegenContext cc("YO");
+  // CodegenContext cc("YO");
+  auto &cc = parser.getCodegenContext();
   for (auto &v : val) {
     try {
       v->codegen(cc);

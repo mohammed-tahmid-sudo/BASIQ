@@ -432,63 +432,132 @@ llvm::Value *BinaryOperationNode::codegen(CodegenContext &cc) {
   if (!LHS || !RHS)
     throw std::runtime_error("null operand in binary operation");
 
-  // force both operands to i32
-  auto *i32 = llvm::Type::getInt32Ty(*cc.TheContext);
 
-  if (LHS->getType()->isIntegerTy(1))
-    LHS = cc.Builder->CreateIntCast(LHS, i32, true);
-
-  if (RHS->getType()->isIntegerTy(1))
-    RHS = cc.Builder->CreateIntCast(RHS, i32, true);
+  LHS->getType()->print(llvm::errs());
+  llvm::errs() << "\n";
+  RHS->getType()->print(llvm::errs());
+  llvm::errs() << "\n";
 
   switch (Type) {
+
   case TokenType::PLUS:
-    return cc.Builder->CreateAdd(LHS, RHS, "addtmp");
-
   case TokenType::MINUS:
-    return cc.Builder->CreateSub(LHS, RHS, "subtmp");
-
   case TokenType::STAR:
-    return cc.Builder->CreateMul(LHS, RHS, "multmp");
+  case TokenType::SLASH: {
+    auto *i32 = llvm::Type::getInt32Ty(*cc.TheContext);
 
-  case TokenType::SLASH:
-    return cc.Builder->CreateSDiv(LHS, RHS, "divtmp");
+    if (LHS->getType()->isIntegerTy(1))
+      LHS = cc.Builder->CreateIntCast(LHS, i32, true);
 
-  case TokenType::LT: {
-    auto *cmp = cc.Builder->CreateICmpSLT(LHS, RHS, "lttmp");
-    return cc.Builder->CreateIntCast(cmp, i32, true);
-  }
+    if (RHS->getType()->isIntegerTy(1))
+      RHS = cc.Builder->CreateIntCast(RHS, i32, true);
 
-  case TokenType::LTE: {
-    auto *cmp = cc.Builder->CreateICmpSLE(LHS, RHS, "letmp");
-    return cc.Builder->CreateIntCast(cmp, i32, true);
-  }
+    if (Type == TokenType::PLUS)
+      return cc.Builder->CreateAdd(LHS, RHS, "addtmp");
 
-  case TokenType::GT: {
-    auto *cmp = cc.Builder->CreateICmpSGT(LHS, RHS, "gttmp");
-    return cc.Builder->CreateIntCast(cmp, i32, true);
-  }
+    if (Type == TokenType::MINUS)
+      return cc.Builder->CreateSub(LHS, RHS, "subtmp");
 
-  case TokenType::GTE: {
-    auto *cmp = cc.Builder->CreateICmpSGE(LHS, RHS, "getmp");
-    return cc.Builder->CreateIntCast(cmp, i32, true);
+    if (Type == TokenType::STAR)
+      return cc.Builder->CreateMul(LHS, RHS, "multmp");
+
+    if (Type == TokenType::SLASH)
+      return cc.Builder->CreateSDiv(LHS, RHS, "divtmp");
   }
 
   case TokenType::EQEQ: {
-    auto *cmp = cc.Builder->CreateICmpEQ(LHS, RHS, "eqtmp");
-    return cc.Builder->CreateIntCast(cmp, i32, true);
+    if (LHS->getType() != RHS->getType()) {
+      if (LHS->getType()->isIntegerTy() && RHS->getType()->isIntegerTy()) {
+        RHS = cc.Builder->CreateIntCast(RHS, LHS->getType(), true);
+      } else {
+        throw std::runtime_error("Cannot compare incompatible types");
+      }
+    }
+
+    return cc.Builder->CreateICmpEQ(LHS, RHS, "eqtmp");
   }
 
   case TokenType::NOTEQ: {
-    auto *cmp = cc.Builder->CreateICmpNE(LHS, RHS, "netmp");
-    return cc.Builder->CreateIntCast(cmp, i32, true);
-  }
+    if (LHS->getType() != RHS->getType()) {
+      if (LHS->getType()->isIntegerTy() && RHS->getType()->isIntegerTy()) {
+        RHS = cc.Builder->CreateIntCast(RHS, LHS->getType(), true);
+      } else {
+        throw std::runtime_error("Cannot compare incompatible types");
+      }
+    }
+
+    return cc.Builder->CreateICmpNE(LHS, RHS, "netmp");
+  } 
 
   default:
-    throw std::runtime_error("unknown binary operator Named" +
-                             std::string(tokenName(Type)));
+    throw std::runtime_error("Unknown binary operator");
   }
 }
+
+// llvm::Value *BinaryOperationNode::codegen(CodegenContext &cc) {
+//   llvm::Value *LHS = Left->codegen(cc);
+//   llvm::Value *RHS = Right->codegen(cc);
+
+//   if (!LHS || !RHS)
+//     throw std::runtime_error("null operand in binary operation");
+
+//   // force both operands to i32
+//   auto *i32 = llvm::Type::getInt32Ty(*cc.TheContext);
+
+//   if (LHS->getType()->isIntegerTy(1))
+//     LHS = cc.Builder->CreateIntCast(LHS, i32, true);
+
+//   if (RHS->getType()->isIntegerTy(1))
+//     RHS = cc.Builder->CreateIntCast(RHS, i32, true);
+
+//   switch (Type) {
+//   case TokenType::PLUS:
+//     return cc.Builder->CreateAdd(LHS, RHS, "addtmp");
+
+//   case TokenType::MINUS:
+//     return cc.Builder->CreateSub(LHS, RHS, "subtmp");
+
+//   case TokenType::STAR:
+//     return cc.Builder->CreateMul(LHS, RHS, "multmp");
+
+//   case TokenType::SLASH:
+//     return cc.Builder->CreateSDiv(LHS, RHS, "divtmp");
+
+//   case TokenType::LT: {
+//     auto *cmp = cc.Builder->CreateICmpSLT(LHS, RHS, "lttmp");
+//     return cc.Builder->CreateIntCast(cmp, i32, true);
+//   }
+
+//   case TokenType::LTE: {
+//     auto *cmp = cc.Builder->CreateICmpSLE(LHS, RHS, "letmp");
+//     return cc.Builder->CreateIntCast(cmp, i32, true);
+//   }
+
+//   case TokenType::GT: {
+//     auto *cmp = cc.Builder->CreateICmpSGT(LHS, RHS, "gttmp");
+//     return cc.Builder->CreateIntCast(cmp, i32, true);
+//   }
+
+//   case TokenType::GTE: {
+//     auto *cmp = cc.Builder->CreateICmpSGE(LHS, RHS, "getmp");
+//     return cc.Builder->CreateIntCast(cmp, i32, true);
+//   }
+
+//   case TokenType::EQEQ: {
+//     auto *cmp = cc.Builder->CreateICmpEQ(LHS, RHS, "eqtmp");
+//     return cc.Builder->CreateIntCast(cmp, i32, true);
+//   }
+
+//   case TokenType::NOTEQ: {
+//     auto *cmp = cc.Builder->CreateICmpNE(LHS, RHS, "netmp");
+//     return cc.Builder->CreateIntCast(cmp, i32, true);
+//   }
+
+//   default:
+//     throw std::runtime_error("unknown binary operator Named" +
+//                              std::string(tokenName(Type)));
+//   }
+// }
 
 llvm::Value *BreakNode::codegen(CodegenContext &cc) {
   if (!cc.BreakBB) {
@@ -565,31 +634,76 @@ llvm::Value *ForNode::codegen(CodegenContext &cc) {
 }
 
 llvm::Value *ArrayLiteralNode::codegen(CodegenContext &cc) {
+  // Ensure there is at least one element
+  if (Elements.empty()) {
+    std::cerr << "Error: ArrayLiteralNode has no elements\n";
+    return nullptr;
+  }
 
+  // Determine the element type from the first element
+  llvm::Value *firstElem = Elements[0]->codegen(cc);
+  if (!firstElem) {
+    std::cerr << "Error: Could not generate code for array element\n";
+    return nullptr;
+  }
+
+  llvm::Type *ElementType = firstElem->getType();
+  if (!ElementType) {
+    std::cerr << "Error: ElementType is null\n";
+    return nullptr;
+  }
+
+  // Create array type
   llvm::ArrayType *arrType = llvm::ArrayType::get(ElementType, Elements.size());
-
   llvm::AllocaInst *arrayAlloc =
       cc.Builder->CreateAlloca(arrType, nullptr, "arraytmp");
 
+  // Store each element in the allocated array
   for (size_t i = 0; i < Elements.size(); i++) {
-
     llvm::Value *elemVal = Elements[i]->codegen(cc);
+    if (!elemVal) {
+      std::cerr << "Error: Could not generate code for element at index " << i
+                << "\n";
+      continue;
+    }
 
-    llvm::Value *zero = cc.Builder->getInt32(0);
-    llvm::Value *index = cc.Builder->getInt32(i);
-
-    llvm::Value *gep =
-        cc.Builder->CreateGEP(arrType, arrayAlloc, {zero, index}, "elemptr");
+    llvm::Value *gep = cc.Builder->CreateGEP(
+        arrType, arrayAlloc, {cc.Builder->getInt32(0), cc.Builder->getInt32(i)},
+        "elemptr");
 
     cc.Builder->CreateStore(elemVal, gep);
   }
 
-  return nullptr;
+  return arrayAlloc; // return pointer to the allocated array
 }
+
+// llvm::Value *ArrayLiteralNode::codegen(CodegenContext &cc) {
+
+//   llvm::ArrayType *arrType = llvm::ArrayType::get(ElementType,
+//   Elements.size());
+
+//   llvm::AllocaInst *arrayAlloc =
+//       cc.Builder->CreateAlloca(arrType, nullptr, "arraytmp");
+
+//   for (size_t i = 0; i < Elements.size(); i++) {
+
+//     llvm::Value *elemVal = Elements[i]->codegen(cc);
+
+//     llvm::Value *zero = cc.Builder->getInt32(0);
+//     llvm::Value *index = cc.Builder->getInt32(i);
+
+//     llvm::Value *gep =
+//         cc.Builder->CreateGEP(arrType, arrayAlloc, {zero, index}, "elemptr");
+
+//     cc.Builder->CreateStore(elemVal, gep);
+//   }
+
+//   return nullptr;
+// }
 
 llvm::Value *ArrayAccessNode::codegen(CodegenContext &cc) {
   llvm::Value *arrayPtr = cc.lookup(arrayName);
-	
+
   if (!arrayPtr)
     throw std::runtime_error("Unknown array: " + arrayName);
 

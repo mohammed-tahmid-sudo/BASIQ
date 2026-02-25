@@ -9,6 +9,7 @@ class Parser {
 
 public:
   Parser(std::vector<Token> inp, const std::string &s) : input(inp), cc(s) {}
+  CodegenContext &getCodegenContext() { return cc; }
   Token Peek();
   Token Consume();
   Token Expect(TokenType tk);
@@ -24,8 +25,8 @@ public:
   std::unique_ptr<ReturnNode> ParseReturn();
   std::unique_ptr<IfNode> ParseIfElse();
   std::unique_ptr<WhileNode> ParseWhile();
-  std::unique_ptr<ForNode> ParseFor(); 
-	
+  std::unique_ptr<ForNode> ParseFor();
+
   std::unique_ptr<ast> ParseStatement();
 
   std::vector<std::unique_ptr<ast>> Parse();

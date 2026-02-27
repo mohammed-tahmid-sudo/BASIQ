@@ -19,7 +19,7 @@ std::string BooleanNode::repr() {
 std::string CharNode::repr() {
   return "CharNode(" + std::to_string((int)val) + ")";
 }
-std::string StringNode::repr() { return "StringNode(" + val + ")"; }
+// std::string StringNode::repr() { return "StringNode(" + val + ")"; }
 
 std::string VariableDeclareNode::repr() {
   return "VariableDeclareNode(name=" + name +
@@ -94,3 +94,5 @@ std::string ArrayLiteralNode::repr() { return "SOME WEIRD SHIT"; }
 std::string ArrayAccessNode::repr() {
   return "ArrayAccesNode(Name=" + arrayName + ", location=" + indexExpr->repr();
 }
+
+

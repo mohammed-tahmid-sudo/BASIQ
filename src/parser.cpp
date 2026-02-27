@@ -10,6 +10,7 @@
 #include <llvm-18/llvm/IR/Intrinsics.h>
 #include <llvm-18/llvm/IR/PassManager.h>
 #include <llvm-18/llvm/IR/Type.h>
+#include <llvm-18/llvm/Support/CommandLine.h>
 #include <llvm-18/llvm/Support/Error.h>
 #include <llvm-18/llvm/Support/MathExtras.h>
 #include <llvm-18/llvm/Support/raw_ostream.h>
@@ -136,15 +137,15 @@ std::unique_ptr<ast> Parser::ParseFactor() {
     Token name = Peek();
     Consume();
 
-    if (Peek().type == EQ) {
-      Consume();
-      auto val = ParseExpression();
+    // if (Peek().type == EQ) {
+    //   Consume();
+    //   auto val = ParseExpression();
 
-      // kxpect(SEMICOLON);
+    //   // kxpect(SEMICOLON);
 
-      return std::make_unique<AssignmentNode>(name.value, std::move(val));
+    //   return std::make_unique<AssignmentNode>(name.value, std::move(val));
 
-    } else if (Peek().type == LPAREN) {
+    if (Peek().type == LPAREN) {
 
       Consume();
       std::vector<std::unique_ptr<ast>> args;
@@ -171,16 +172,14 @@ std::unique_ptr<ast> Parser::ParseFactor() {
       Consume();
       auto val = ParseExpression();
       if (!dynamic_cast<IntegerNode *>(val.get())) {
-        throw std::runtime_error("Expected a Number, But got");
+        throw std::runtime_error("Expected a Number, But got Something Else");
       }
-      std::cout << val->repr() << std::endl;
       Expect(RBRACKET);
 
       return std::make_unique<ArrayAccessNode>(name.value, std::move(val));
     } else {
       return std::make_unique<VariableReferenceNode>(name.value);
     }
-
   } else if (Peek().type == CHAR_LITERAL) {
     Token val = Consume();
     if (val.value.size() < 1) {
@@ -241,6 +240,7 @@ std::unique_ptr<ast> Parser::ParseExpression() {
 std::unique_ptr<VariableDeclareNode> Parser::ParseVariable() {
   Expect(TokenType::LET);
   Token name = Expect(TokenType::IDENTIFIER);
+
   Expect(TokenType::COLON);
   Token type = Expect(TokenType::TYPES);
   unsigned size = 1;
@@ -277,19 +277,6 @@ std::unique_ptr<FunctionNode> Parser::ParseFunction() {
   Token name = Expect(TokenType::IDENTIFIER);
   Expect(LPAREN);
   std::vector<std::pair<std::string, llvm::Type *>> args;
-  // while (Peek().type != RPAREN) {
-  //   Token peramName = Expect(IDENTIFIER);
-  //   Expect(COLON);
-  //   Token type = Expect(TYPES);
-  //   args.push_back(
-  //       std::make_pair(peramName.value, GetTypeVoid(type, *cc.TheContext)));
-
-  //   if (Peek().type == COMMA) {
-  //     Consume();
-  //   } else {
-  //     break;
-  //   }
-  // }
 
   while (Peek().type != RPAREN) {
     Token paramName = Expect(IDENTIFIER);
@@ -420,6 +407,31 @@ std::unique_ptr<ForNode> Parser::ParseFor() {
                                    std::move(incremnt), std::move(body));
 }
 
+std::unique_ptr<ast> Parser::ParseAssignment() {
+  Token name = Expect(IDENTIFIER);
+
+  if (Peek().type == EQ) {
+    Consume();
+    auto val = ParseExpression();
+
+    Expect(SEMICOLON);
+
+    return std::make_unique<AssignmentNode>(name.value, std::move(val));
+  } else if (Peek().type == LBRACKET) {
+    Consume();
+    Token location = Expect(INT_LITERAL);
+    Expect(RBRACKET);
+
+    Expect(EQ);
+    auto val = ParseExpression();
+    Expect(SEMICOLON);
+
+    return std::make_unique<ArrayAssignNode>(
+        name.value, std::stoul(location.value), std::move(val));
+  }
+  return nullptr;
+}
+
 std::unique_ptr<ast> Parser::ParseStatement() {
   if (Peek().type == TokenType::LET) {
     return ParseVariable();
@@ -435,6 +447,8 @@ std::unique_ptr<ast> Parser::ParseStatement() {
     return ParseWhile();
   } else if (Peek().type == FOR) {
     return ParseFor();
+  } else if (Peek().type == IDENTIFIER) {
+    return ParseAssignment();
   } else {
     if (auto v = ParseExpression()) {
       return v;
@@ -472,9 +486,9 @@ std::vector<std::unique_ptr<ast>> Parser::Parse() {
 int main() {
   std::string src = R"(
   func random(a:Char[2]) -> Boolean {
-	if a[0] == "1"  {
+	if a[0] == "1" && a[1] == "\0" {
 		return True;
-	}
+    }
 	return False;
   }
 
@@ -482,8 +496,11 @@ int main() {
 	  let a:Char[2] = "1"; 
 	  let a:Boolean = random(a);
 
+	  let something:Char[21] = "hello world, hello\0";
+	  something[2] = "h";
+
 	  return 0; 
-	  }
+  }
   )";
 
   Lexer lexer(src);

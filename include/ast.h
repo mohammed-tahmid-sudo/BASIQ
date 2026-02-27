@@ -79,12 +79,12 @@ struct BooleanNode : ast {
   llvm::Value *codegen(CodegenContext &cc) override;
 };
 
-struct StringNode : ast {
-  std::string val;
-  StringNode(const std::string &v) : val(v) {}
-  std::string repr() override;
-  llvm::Value *codegen(CodegenContext &cc) override;
-};
+// struct StringNode : ast {
+//   std::string val;
+//   StringNode(const std::string &v) : val(v) {}
+//   std::string repr() override;
+//   llvm::Value *codegen(CodegenContext &cc) override;
+// };
 
 struct VariableDeclareNode : ast {
   std::string name;
@@ -246,5 +246,17 @@ struct ArrayAccessNode : ast {
       : arrayName(name), indexExpr(std::move(index)) {}
 
   std::string repr() override;
+  llvm::Value *codegen(CodegenContext &cc) override;
+};
+
+struct ArrayAssignNode : ast {
+  unsigned location;
+  std::string name;
+  std::unique_ptr<ast> value;
+
+  ArrayAssignNode(const std::string &n, unsigned l, std::unique_ptr<ast> val)
+      : name(n), location(l), value(std::move(val)) {}
+
+  std::string repr() override { return "somerandomthing"; };
   llvm::Value *codegen(CodegenContext &cc) override;
 };

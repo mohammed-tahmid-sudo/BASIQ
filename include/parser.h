@@ -26,6 +26,7 @@ public:
   std::unique_ptr<IfNode> ParseIfElse();
   std::unique_ptr<WhileNode> ParseWhile();
   std::unique_ptr<ForNode> ParseFor();
+  std::unique_ptr<ast> ParseAssignment();
 
   std::unique_ptr<ast> ParseStatement();
 

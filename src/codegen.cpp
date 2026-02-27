@@ -22,22 +22,12 @@ llvm::Type *GetTypeNonVoid(Token type, llvm::LLVMContext &context) {
   for (char &c : type.value)
     c = toupper(c);
 
-  // if (type.value == tokenName(TokenType::INTEGER)) {
-  //   return llvm::Type::getInt32Ty(context);
-  // } else if (type.value == tokenName(TokenType::FLOAT)) {
-  //   return llvm::Type::getFloatTy(context);
-  // } else if (type.value == tokenName(TokenType::STRING)) {
-  //   return llvm::PointerType::get(llvm::Type::getInt8Ty(context), false);
-  // } else if (type.value == tokenName(TokenType::BOOLEAN)) {
-  //   return llvm::Type::getInt1Ty(context);
-  // }
-
   if (type.value == "INTEGER") {
     return llvm::Type::getInt32Ty(context);
   } else if (type.value == "FLOAT") {
     return llvm::Type::getFloatTy(context);
   } else if (type.value == "STRING") {
-    return llvm::PointerType::get(llvm::Type::getInt8Ty(context), false);
+    return llvm::Type::getInt32Ty(context);
   } else if (type.value == "BOOLEAN") {
     return llvm::Type::getInt1Ty(context);
   } else if (type.value == "CHAR") {
@@ -79,10 +69,11 @@ llvm::Value *BooleanNode::codegen(CodegenContext &cc) {
                                 true);
 }
 
-llvm::Value *StringNode::codegen(CodegenContext &cc) {
-  return llvm::ConstantDataArray::getString(*cc.TheContext, val,
-                                            true); // true = add null terminator
-}
+// llvm::Value *StringNode::codegen(CodegenContext &cc) {
+//   return llvm::ConstantDataArray::getString(*cc.TheContext, val,
+//                                             true); // true = add null
+//                                             terminator
+// }
 
 llvm::Value *VariableDeclareNode::codegen(CodegenContext &cc) {
   llvm::Type *elementType = GetTypeNonVoid(Type, *cc.TheContext);
@@ -432,7 +423,6 @@ llvm::Value *BinaryOperationNode::codegen(CodegenContext &cc) {
   if (!LHS || !RHS)
     throw std::runtime_error("null operand in binary operation");
 
-
   LHS->getType()->print(llvm::errs());
   llvm::errs() << "\n";
   RHS->getType()->print(llvm::errs());
@@ -487,7 +477,20 @@ llvm::Value *BinaryOperationNode::codegen(CodegenContext &cc) {
     }
 
     return cc.Builder->CreateICmpNE(LHS, RHS, "netmp");
-  } 
+  }
+  case TokenType::AND: {
+    if (!LHS->getType()->isIntegerTy(1)) {
+      LHS = cc.Builder->CreateICmpNE(
+          LHS, llvm::ConstantInt::get(LHS->getType(), 0), "lhsbool");
+    }
+
+    if (!RHS->getType()->isIntegerTy(1)) {
+      RHS = cc.Builder->CreateICmpNE(
+          RHS, llvm::ConstantInt::get(RHS->getType(), 0), "rhsbool");
+    }
+
+    return cc.Builder->CreateAnd(LHS, RHS, "andtmp");
+  }
 
   default:
     throw std::runtime_error("Unknown binary operator");
@@ -677,30 +680,6 @@ llvm::Value *ArrayLiteralNode::codegen(CodegenContext &cc) {
   return arrayAlloc; // return pointer to the allocated array
 }
 
-// llvm::Value *ArrayLiteralNode::codegen(CodegenContext &cc) {
-
-//   llvm::ArrayType *arrType = llvm::ArrayType::get(ElementType,
-//   Elements.size());
-
-//   llvm::AllocaInst *arrayAlloc =
-//       cc.Builder->CreateAlloca(arrType, nullptr, "arraytmp");
-
-//   for (size_t i = 0; i < Elements.size(); i++) {
-
-//     llvm::Value *elemVal = Elements[i]->codegen(cc);
-
-//     llvm::Value *zero = cc.Builder->getInt32(0);
-//     llvm::Value *index = cc.Builder->getInt32(i);
-
-//     llvm::Value *gep =
-//         cc.Builder->CreateGEP(arrType, arrayAlloc, {zero, index}, "elemptr");
-
-//     cc.Builder->CreateStore(elemVal, gep);
-//   }
-
-//   return nullptr;
-// }
-
 llvm::Value *ArrayAccessNode::codegen(CodegenContext &cc) {
   llvm::Value *arrayPtr = cc.lookup(arrayName);
 
@@ -739,41 +718,48 @@ llvm::Value *ArrayAccessNode::codegen(CodegenContext &cc) {
   return builder.CreateLoad(elementType, elemPtr, arrayName + "_elem");
 }
 
-// llvm::Value *ArrayAccessNode::codegen(CodegenContext &cc) {
-//   // Your lookup returns llvm::Value*
-//   llvm::Value *arrayPtr = cc.lookup(arrayName);
+llvm::Value *ArrayAssignNode::codegen(CodegenContext &cc) {
+  // 1. Lookup variable
+  llvm::Value *arrayVal = cc.lookup(name);
+  if (!arrayVal)
+    throw std::runtime_error("Undefined array variable: " + name);
 
-//   if (!arrayPtr)
-//     throw std::runtime_error("Unknown array: " + arrayName);
+  // 2. Must be alloca
+  llvm::AllocaInst *alloca = llvm::dyn_cast<llvm::AllocaInst>(arrayVal);
 
-//   // It must be an alloca
-//   auto *allocaInst = llvm::dyn_cast<llvm::AllocaInst>(arrayPtr);
-//   if (!allocaInst)
-//     throw std::runtime_error(arrayName + " is not an array variable");
+  if (!alloca)
+    throw std::runtime_error(name + " is not stack allocated");
 
-//   // This works even with opaque pointers
-//   llvm::Type *arrayType = allocaInst->getAllocatedType();
+  llvm::Type *arrayType = alloca->getAllocatedType();
 
-//   if (!arrayType->isArrayTy())
-//     throw std::runtime_error(arrayName + " is not an array");
+  if (!arrayType->isArrayTy())
+    throw std::runtime_error(name + " is not an array");
 
-//   llvm::Value *indexVal = indexExpr->codegen(cc);
+  // 3. Create GEP indices
+  llvm::Value *zero =
+      llvm::ConstantInt::get(llvm::Type::getInt32Ty(*cc.TheContext), 0);
 
-//   if (!indexVal->getType()->isIntegerTy())
-//     throw std::runtime_error("Array index must be integer");
+  llvm::Value *index =
+      llvm::ConstantInt::get(llvm::Type::getInt32Ty(*cc.TheContext), location);
 
-//   llvm::IRBuilder<> &builder = *cc.Builder;
+  llvm::Value *elemPtr = cc.Builder->CreateGEP(arrayType, alloca, {zero, index},
+                                               name + "_elem_ptr");
 
-//   // GEP [0, index]
-//   llvm::Value *elemPtr =
-//       builder.CreateGEP(arrayType, arrayPtr, {builder.getInt32(0), indexVal},
-//                         arrayName + "_elem_ptr");
+  // 4. Generate RHS
+  llvm::Value *val = value->codegen(cc);
+  if (!val)
+    throw std::runtime_error("Invalid RHS in array assignment");
 
-//   llvm::Type *elementType = arrayType->getArrayElementType();
+  llvm::Type *elemType = arrayType->getArrayElementType();
 
-//   return builder.CreateLoad(elementType, elemPtr, arrayName + "_elem");
-// }
+  if (val->getType() != elemType)
+    throw std::runtime_error("Type mismatch in array assignment");
 
+  // 5. Store
+  cc.Builder->CreateStore(val, elemPtr);
+
+  return val;
+}
 // int main() {
 //   CodegenContext ctx("myprogram");
 //   ctx.pushScope(); // Start Global Scope
@@ -846,3 +832,4 @@ llvm::Value *ArrayAccessNode::codegen(CodegenContext &cc) {
 //   ctx.popScope(); // End Global Scope
 //   return 0;
 // }
+

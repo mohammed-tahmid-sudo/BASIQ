@@ -491,9 +491,55 @@ llvm::Value *BinaryOperationNode::codegen(CodegenContext &cc) {
 
     return cc.Builder->CreateAnd(LHS, RHS, "andtmp");
   }
+  case TokenType::GTE: {
+    if (LHS->getType() != RHS->getType()) {
+      if (LHS->getType()->isIntegerTy() && RHS->getType()->isIntegerTy()) {
+        RHS = cc.Builder->CreateIntCast(RHS, LHS->getType(), true);
+      } else {
+        throw std::runtime_error("Cannot compare incompatible types");
+      }
+    }
+    return cc.Builder->CreateICmpSGE(LHS, RHS,
+                                     "gtetmp"); // signed greater or equal
+  }
+
+  case TokenType::LTE: {
+    if (LHS->getType() != RHS->getType()) {
+      if (LHS->getType()->isIntegerTy() && RHS->getType()->isIntegerTy()) {
+        RHS = cc.Builder->CreateIntCast(RHS, LHS->getType(), true);
+      } else {
+        throw std::runtime_error("Cannot compare incompatible types");
+      }
+    }
+    return cc.Builder->CreateICmpSLE(LHS, RHS,
+                                     "ltetmp"); // signed less or equal
+  }
+
+  case TokenType::GT: {
+    if (LHS->getType() != RHS->getType()) {
+      if (LHS->getType()->isIntegerTy() && RHS->getType()->isIntegerTy()) {
+        RHS = cc.Builder->CreateIntCast(RHS, LHS->getType(), true);
+      } else {
+        throw std::runtime_error("Cannot compare incompatible types");
+      }
+    }
+    return cc.Builder->CreateICmpSGT(LHS, RHS, "gttmp"); // signed greater than
+  }
+
+  case TokenType::LT: {
+    if (LHS->getType() != RHS->getType()) {
+      if (LHS->getType()->isIntegerTy() && RHS->getType()->isIntegerTy()) {
+        RHS = cc.Builder->CreateIntCast(RHS, LHS->getType(), true);
+      } else {
+        throw std::runtime_error("Cannot compare incompatible types");
+      }
+    }
+    return cc.Builder->CreateICmpSLT(LHS, RHS, "lttmp"); // signed less than
+  }
 
   default:
-    throw std::runtime_error("Unknown binary operator");
+    throw std::runtime_error("Unknown binary operator " +
+                             std::string(tokenName(Type)));
   }
 }
 
@@ -832,4 +878,3 @@ llvm::Value *ArrayAssignNode::codegen(CodegenContext &cc) {
 //   ctx.popScope(); // End Global Scope
 //   return 0;
 // }
-

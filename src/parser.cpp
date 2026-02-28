@@ -71,21 +71,6 @@ std::unique_ptr<ast> Parser::ParseFactor() {
     Consume();
     return std::make_unique<BooleanNode>(false);
 
-    // } else if (Peek().type == TokenType::STRING_LITERAL) {
-    //   std::string val = Peek().value;
-    //   Consume();
-    //   // return std::make_unique<StringNode>(val);
-    //   std::vector<std::unique_ptr<ast>> outputs;
-    //   for (auto &tok : val) {
-    //     outputs.push_back(std::make_unique<CharNode>(tok));
-    //   }
-
-    //   if (!outputs.empty() &&
-    //       static_cast<CharNode *>(outputs.back().get())->val != '\0') {
-    //     outputs.push_back(std::make_unique<CharNode>(0));
-    //   }
-    //   return std::make_unique<ArrayLiteralNode>(
-    //       llvm::Type::getInt32Ty(*cc.TheContext), std::move(outputs));
   } else if (Peek().type == STRING_LITERAL) {
     std::string val = Peek().value;
     Consume();
@@ -137,14 +122,6 @@ std::unique_ptr<ast> Parser::ParseFactor() {
     Token name = Peek();
     Consume();
 
-    // if (Peek().type == EQ) {
-    //   Consume();
-    //   auto val = ParseExpression();
-
-    //   // kxpect(SEMICOLON);
-
-    //   return std::make_unique<AssignmentNode>(name.value, std::move(val));
-
     if (Peek().type == LPAREN) {
 
       Consume();
@@ -189,7 +166,7 @@ std::unique_ptr<ast> Parser::ParseFactor() {
     return std::make_unique<CharNode>(val.value[0]);
   } else {
     if (Peek().type == SEMICOLON) {
-      return nullptr; // just signal “no factor here”
+      return nullptr;
     } else {
       throw std::runtime_error("Unexpected token in ParseFactor: " +
                                std::string(tokenName(Peek().type)));
@@ -342,6 +319,7 @@ std::unique_ptr<ReturnNode> Parser::ParseReturn() {
   auto val = ParseExpression();
   if (!val)
     throw std::runtime_error("ERROR: Return statement MIssing Expression");
+  // std::cout << tokenName(Peek().type) << std::endl;
   Expect(SEMICOLON);
   return std::make_unique<ReturnNode>(std::move(val));
 }
@@ -485,22 +463,27 @@ std::vector<std::unique_ptr<ast>> Parser::Parse() {
 
 int main() {
   std::string src = R"(
-  func random(a:Char[2]) -> Boolean {
-	if a[0] == "1" && a[1] == "\0" {
-		return True;
-    }
-	return False;
+  func to_upper(c:Char) -> Char {
+	if c >= 97 && c <= 122 {
+		return c - 32;
+	}
+  }
+
+  func to_lower(c:Char) -> Char {
+	  if c >= 65 && c <= 90 {
+		 return c + 32;
+	  }
   }
 
   func main() -> Integer {
-	  let a:Char[2] = "1"; 
-	  let a:Boolean = random(a);
-
-	  let something:Char[21] = "hello world, hello\0";
-	  something[2] = "h";
-
-	  return 0; 
+	let a:Char[12] = "hello world\0";
+	let b:Char[12];
+	for (let i:Integer = 0; i < 12; i = i + 1)  {
+		b[i] = 
+	}
+	return 0; 
   }
+
   )";
 
   Lexer lexer(src);
@@ -520,18 +503,16 @@ int main() {
             << Colors::RESET << std::endl;
   Parser parser(program, "MYMODULE");
   auto val = parser.Parse();
-  // for (auto &v : val) {
-  //   std::cout << v->repr() << std::endl;
-  // }
+  for (auto &v : val) {
+    std::cout << v->repr() << std::endl;
+  }
 
-  // CodegenContext cc("YO");
   auto &cc = parser.getCodegenContext();
   for (auto &v : val) {
     try {
       v->codegen(cc);
     } catch (const std::exception &e) {
       std::cerr << "Codegen error: " << e.what() << std::endl;
-      // Optionally: continue to next node or break
     }
   }
 

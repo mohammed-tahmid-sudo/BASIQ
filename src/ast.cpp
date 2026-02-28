@@ -5,7 +5,7 @@
 #include <string>
 
 std::string IntegerNode::repr() {
-  return "InegerNode(" + std::to_string(val) + ")";
+  return "IntegerNode(" + std::to_string(val) + ")";
 }
 
 std::string FloatNode::repr() {
@@ -17,14 +17,14 @@ std::string BooleanNode::repr() {
 }
 
 std::string CharNode::repr() {
-  return "CharNode(" + std::to_string((int)val) + ")";
+  return "CharNode(" + std::to_string(static_cast<int>(val)) + ")";
 }
+
 // std::string StringNode::repr() { return "StringNode(" + val + ")"; }
 
 std::string VariableDeclareNode::repr() {
   return "VariableDeclareNode(name=" + name +
-         ", value=" + (val ? val->repr() : "null") +
-         ", Type=" + Type.value + // if Type.value is numeric
+         ", value=" + (val ? val->repr() : "null") + ", Type=" + Type.value +
          ", Size=" + std::to_string(arraySize.value_or(1)) + ")";
 }
 
@@ -34,7 +34,6 @@ std::string AssignmentNode::repr() {
 
 std::string CompoundNode::repr() {
   std::string output = "[";
-
   bool first = true;
   for (auto &block : blocks) {
     if (!first)
@@ -42,15 +41,15 @@ std::string CompoundNode::repr() {
     output += block->repr();
     first = false;
   }
-
   output += "]";
   return output;
 }
 
 std::string FunctionNode::repr() {
   return "FunctionNode(Name=" + name + ", Value=[" + content->repr() +
-         "], ReturnType=" + ReturnType.value;
+         "], ReturnType=" + ReturnType.value + ")";
 }
+
 std::string VariableReferenceNode::repr() {
   return "VariableReferenceNode(" + Name + ")";
 }
@@ -63,8 +62,9 @@ std::string WhileNode::repr() {
 std::string IfNode::repr() {
   return "IfNode(Condition=" + condition->repr() +
          ", ThenBlock=" + thenBlock->repr() +
-         ", EndBlock=" + elseBlock->repr() + ")";
+         ", ElseBlock=" + (elseBlock ? elseBlock->repr() : "null") + ")";
 }
+
 std::string ReturnNode::repr() { return "ReturnNode(" + expr->repr() + ")"; }
 
 std::string BinaryOperationNode::repr() {
@@ -74,25 +74,45 @@ std::string BinaryOperationNode::repr() {
   return oss.str();
 }
 
-std::string BreakNode::repr() { return "BreakNode(NOARGS)"; }
-std::string ContinueNode::repr() { return "ContinueNode(NOARGS)"; }
+std::string BreakNode::repr() { return "BreakNode()"; }
 
-std::string CallNode::repr() { return "CallNode(Name=" + name + ", contents"; }
+std::string ContinueNode::repr() { return "ContinueNode()"; }
 
-std::string ForNode::repr() {
-  std::string s = "ForNode(\n";
-  s += "  init: " + (init ? init->repr() : "null") + ",\n";
-  s += "  condition: " + (condition ? condition->repr() : "null") + ",\n";
-  s += "  increment: " + (increment ? increment->repr() : "null") + ",\n";
-  s += "  body: " + (body ? body->repr() : "null") + "\n";
-  s += ")";
+std::string CallNode::repr() {
+  std::string s = "CallNode(Name=" + name + ", Contents=[";
+  bool first = true;
+  for (auto &arg : args) {
+    if (!first)
+      s += ", ";
+    s += arg->repr();
+    first = false;
+  }
+  s += "])";
   return s;
 }
 
-std::string ArrayLiteralNode::repr() { return "SOME WEIRD SHIT"; }
-
-std::string ArrayAccessNode::repr() {
-  return "ArrayAccesNode(Name=" + arrayName + ", location=" + indexExpr->repr();
+std::string ForNode::repr() {
+  std::string s = "ForNode(init=" + (init ? init->repr() : "null") +
+                  ", condition=" + (condition ? condition->repr() : "null") +
+                  ", increment=" + (increment ? increment->repr() : "null") +
+                  ", body=" + (body ? body->repr() : "null") + ")";
+  return s;
 }
 
+std::string ArrayLiteralNode::repr() {
+  std::string s = "ArrayLiteralNode([";
+  bool first = true;
+  for (auto &elem : Elements) {
+    if (!first)
+      s += ", ";
+    s += elem->repr();
+    first = false;
+  }
+  s += "])";
+  return s;
+}
 
+std::string ArrayAccessNode::repr() {
+  return "ArrayAccessNode(Name=" + arrayName + ", Index=" + indexExpr->repr() +
+         ")";
+}

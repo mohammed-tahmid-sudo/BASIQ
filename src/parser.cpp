@@ -484,16 +484,16 @@ int main() {
   }
 
   func main() -> Integer {
-  let a:Integer = 1;
-  let b:Char[13] = "hello world";
+	  let a:Integer = 1;
+	  let b:Char[13] = "hello world";
 
-  let i:Integer = 0;
+	  let i:Integer = 0;
 
-  for (i = 0; i < 13; i = i + 1) {
-	b[i] = to_upper(b[i]);
-  }
+	  for (i = 0; i < 13; i = i + 1) {
+		b[i] = to_upper(b[i]);
+	  }
 
-  return 0; 
+	  return 0; 
   }
 
   )";

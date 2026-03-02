@@ -807,6 +807,16 @@ llvm::Value *ArrayAssignNode::codegen(CodegenContext &cc) {
 
   return val;
 }
+
+llvm::Value *PointerReferenceNode::codegen(CodegenContext &Ctx) {
+  auto var = Ctx.lookup(Name); // returns VarInfo
+  if (!var.ptr)
+    throw std::runtime_error("Unknown variable: " + Name);
+
+  // Use the element type you stored at declaration
+  return Ctx.Builder->CreateLoad(var.elemTy, var.ptr, Name.c_str());
+}
+
 // int main() {
 //   CodegenContext ctx("myprogram");
 //   ctx.pushScope(); // Start Global Scope

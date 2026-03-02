@@ -1,5 +1,6 @@
 #pragma once
 #include "lexer.h"
+#include <llvm-18/llvm/IR/DataLayout.h>
 #include <llvm-18/llvm/IR/IRBuilder.h>
 #include <llvm-18/llvm/IR/LLVMContext.h>
 #include <llvm-18/llvm/IR/Type.h>
@@ -263,5 +264,11 @@ struct ArrayAssignNode : ast {
   llvm::Value *codegen(CodegenContext &cc) override;
 };
 
-// struct :wq
+struct PointerReferenceNode : ast {
+  std::string Name;
 
+  PointerReferenceNode(const std::string &s) : Name(s) {}
+
+  std::string repr() override { return "NOTHING"; }
+  llvm::Value *codegen(CodegenContext &cc) override;
+};

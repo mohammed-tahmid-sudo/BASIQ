@@ -1,5 +1,6 @@
 #pragma once
 #include "lexer.h"
+#include <iostream>
 #include <llvm-18/llvm/IR/DataLayout.h>
 #include <llvm-18/llvm/IR/IRBuilder.h>
 #include <llvm-18/llvm/IR/LLVMContext.h>
@@ -94,23 +95,13 @@ struct VariableDeclareNode : ast {
   std::optional<unsigned> arraySize; // new: size if it's an array
 
   VariableDeclareNode(const std::string &n, std::unique_ptr<ast> v, Token t,
-                      std::optional<unsigned> size = 1)
+                      std::optional<unsigned> size)
       : name(n), val(std::move(v)), Type(t), arraySize(size) {}
 
   std::string repr() override;
 
   llvm::Value *codegen(CodegenContext &cc) override;
 };
-
-// struct VariableDeclareNode : ast {
-//   std::string name;
-//   Token Type;
-//   std::unique_ptr<ast> val;
-//   VariableDeclareNode(const std::string &n, std::unique_ptr<ast> v, Token t)
-//       : name(n), val(std::move(v)), Type(t) {}
-//   std::string repr() override;
-//   llvm::Value *codegen(CodegenContext &cc) override;
-// };
 
 struct AssignmentNode : ast {
   std::string name;
@@ -264,11 +255,23 @@ struct ArrayAssignNode : ast {
   llvm::Value *codegen(CodegenContext &cc) override;
 };
 
-struct PointerReferenceNode : ast {
+struct PointerVariableReferenceNode : ast {
   std::string Name;
 
-  PointerReferenceNode(const std::string &s) : Name(s) {}
+  PointerVariableReferenceNode(const std::string &s) : Name(s) {}
 
   std::string repr() override { return "NOTHING"; }
+  llvm::Value *codegen(CodegenContext &cc) override;
+};
+
+struct DereferenceNode : ast {
+  std::unique_ptr<ast> Expr; // expression producing an address or pointer
+  llvm::Type *ResultType =
+      nullptr; // optional: explicit pointee type (store in AST when known)
+
+  DereferenceNode(std::unique_ptr<ast> e, llvm::Type *resType = nullptr)
+      : Expr(std::move(e)), ResultType(resType) {}
+
+  std::string repr() override { return "Deref"; }
   llvm::Value *codegen(CodegenContext &cc) override;
 };

@@ -24,17 +24,30 @@ llvm::Type *GetTypeNonVoid(Token type, llvm::LLVMContext &context) {
 
   if (type.value == "INTEGER") {
     return llvm::Type::getInt32Ty(context);
+
   } else if (type.value == "FLOAT") {
     return llvm::Type::getFloatTy(context);
-  } else if (type.value == "STRING") {
-    return llvm::Type::getInt32Ty(context);
+
   } else if (type.value == "BOOLEAN") {
     return llvm::Type::getInt1Ty(context);
+
   } else if (type.value == "CHAR") {
-    return llvm::Type::getInt32Ty(context);
+    return llvm::Type::getInt8Ty(context);
+
+  } else if (type.value == "FLOATPOINTER") {
+    return llvm::Type::getFloatTy(context)->getPointerTo();
+
+  } else if (type.value == "INTEGERPOINTER") {
+    return llvm::Type::getInt32Ty(context)->getPointerTo();
+
+  } else if (type.value == "CHARPOINTER") {
+    return llvm::Type::getInt8Ty(context)->getPointerTo();
+
+  } else if (type.value == "BOOLEANPOINTER") {
+    return llvm::Type::getInt1Ty(context)->getPointerTo();
   }
+
   throw std::runtime_error("Invalid Type: " + type.value);
-  return nullptr;
 }
 
 llvm::Type *GetTypeVoid(Token type, llvm::LLVMContext &context) {
@@ -48,8 +61,7 @@ llvm::Type *GetTypeVoid(Token type, llvm::LLVMContext &context) {
 }
 
 llvm::Value *CharNode::codegen(CodegenContext &cc) {
-  // UNICODE
-  return llvm::ConstantInt::get(llvm::Type::getInt32Ty(*cc.TheContext), val,
+  return llvm::ConstantInt::get(llvm::Type::getInt8Ty(*cc.TheContext), val,
                                 false);
 }
 
@@ -120,74 +132,6 @@ llvm::Value *VariableDeclareNode::codegen(CodegenContext &cc) {
   return alloca;
 }
 
-// llvm::Value *VariableDeclareNode::codegen(CodegenContext &cc) {
-//   llvm::Type *elementType = GetTypeNonVoid(Type, *cc.TheContext);
-//   llvm::AllocaInst *alloca = nullptr;
-
-//   // if (arraySize.has_value() && Type.value == "STRING") {
-//   //   elementType = llvm::Type::getInt8Ty(*cc.TheContext);
-//   // }
-
-//   if (arraySize.has_value()) {
-//     llvm::ArrayType *arrayType = llvm::ArrayType::get(elementType,
-//     *arraySize); alloca = cc.Builder->CreateAlloca(arrayType, nullptr, name);
-
-//     if (val) {
-//       // val is ArrayLiteralNode
-//       ArrayLiteralNode *arrayNode = dynamic_cast<ArrayLiteralNode
-//       *>(val.get()); if (arrayNode) {
-//         // store each element into 'alloca'
-//         for (size_t i = 0; i < arrayNode->Elements.size(); i++) {
-//           llvm::Value *elemVal = arrayNode->Elements[i]->codegen(cc);
-//           llvm::Value *gep = cc.Builder->CreateGEP(
-//               arrayType, alloca,
-//              {cc.Builder->getInt32(0), cc.Builder->getInt32(i)}, "elemptr");
-//           cc.Builder->CreateStore(elemVal, gep);
-//         }
-//       }
-//     } else {
-//       // initialize to zeros
-//       for (unsigned i = 0; i < *arraySize; ++i) {
-//         llvm::Value *gep = cc.Builder->CreateGEP(
-//             arrayType, alloca,
-//             {cc.Builder->getInt32(0), cc.Builder->getInt32(i)});
-//         llvm::Value *zero = llvm::ConstantInt::get(elementType, 0);
-//         cc.Builder->CreateStore(zero, gep);
-//       }
-//     }
-//   } else {
-//     // scalar variable
-//     alloca = cc.Builder->CreateAlloca(elementType, nullptr, name);
-//     llvm::Value *initVal =
-//         val ? val->codegen(cc) : llvm::ConstantInt::get(elementType, 0);
-//     cc.Builder->CreateStore(initVal, alloca);
-//   }
-
-//   cc.addVariable(name, alloca);
-//   return alloca;
-// }
-
-// llvm::Value *VariableDeclareNode::codegen(CodegenContext &cc) {
-//   llvm::Type *llvmType = GetTypeNonVoid(Type, *cc.TheContext);
-
-//   if (!cc.Builder->GetInsertBlock())
-//     std::cout << "NO INSERT BLOCK\n";
-
-//   llvm::AllocaInst *alloca = cc.Builder->CreateAlloca(llvmType, nullptr,
-//   name);
-
-//   if (val) {
-//     llvm::Value *initVal = val->codegen(cc);
-//     cc.Builder->CreateStore(initVal, alloca);
-//   } else {
-//     llvm::Value *zero = llvm::Constant::getNullValue(llvmType);
-//     cc.Builder->CreateStore(zero, alloca);
-//   }
-
-//   cc.addVariable(name, alloca);
-//   return alloca;
-// }
-
 llvm::Value *AssignmentNode::codegen(CodegenContext &cc) {
   llvm::Value *var = cc.lookup(name);
   if (!var) {
@@ -213,25 +157,6 @@ llvm::Value *ReturnNode::codegen(CodegenContext &cc) {
     return cc.Builder->CreateRetVoid();
   }
 }
-
-// llvm::Value *CompoundNode::codegen(CodegenContext &cc) {
-//   llvm::Value *last = nullptr;
-
-//   cc.pushScope();
-
-//   for (auto &stmt : blocks) {
-//     if (!stmt)
-//       continue;
-//     llvm::Value *val = stmt->codegen(cc);
-//     if (!val) {
-//       llvm::errs() << "Warning: statement returned null in CompoundNode\n";
-//     }
-//     last = val;
-//   }
-
-//   // cc.popScope();
-//   return last;
-// }
 
 llvm::Value *CompoundNode::codegen(CodegenContext &cc) {
   llvm::Value *last = nullptr;
@@ -423,9 +348,9 @@ llvm::Value *BinaryOperationNode::codegen(CodegenContext &cc) {
   if (!LHS || !RHS)
     throw std::runtime_error("null operand in binary operation");
 
-  LHS->getType()->print(llvm::errs());
+  // LHS->getType()->print(llvm::errs());
   llvm::errs() << "\n";
-  RHS->getType()->print(llvm::errs());
+  // RHS->getType()->print(llvm::errs());
   llvm::errs() << "\n";
 
   switch (Type) {
@@ -808,15 +733,25 @@ llvm::Value *ArrayAssignNode::codegen(CodegenContext &cc) {
   return val;
 }
 
-llvm::Value *PointerReferenceNode::codegen(CodegenContext &Ctx) {
-  auto var = Ctx.lookup(Name); // returns VarInfo
-  if (!var.ptr)
+llvm::Value *PointerVariableReferenceNode::codegen(CodegenContext &cc) {
+  llvm::Value *var = cc.lookup(Name);
+  if (!var) {
     throw std::runtime_error("Unknown variable: " + Name);
+  }
 
-  // Use the element type you stored at declaration
-  return Ctx.Builder->CreateLoad(var.elemTy, var.ptr, Name.c_str());
+  if (!llvm::isa<llvm::AllocaInst>(var)) {
+    throw std::runtime_error("Variable is not a stack-allocated variable: " +
+                             Name);
+  }
+
+  return var;
 }
 
+llvm::Value *DereferenceNode::codegen(CodegenContext &cc) {
+  llvm::Value *val = Expr->codegen(cc);
+
+  return cc.Builder->CreateLoad(val->getType()->getPointerTo(), val);
+}
 // int main() {
 //   CodegenContext ctx("myprogram");
 //   ctx.pushScope(); // Start Global Scope
@@ -834,11 +769,13 @@ llvm::Value *PointerReferenceNode::codegen(CodegenContext &Ctx) {
 
 //   vals.push_back(std::make_unique<IfNode>(
 //       std::make_unique<VariableReferenceNode>("val2"),
-//       std::make_unique<IntegerNode>(21), std::make_unique<IntegerNode>(32)));
+//       std::make_unique<IntegerNode>(21),
+//       std::make_unique<IntegerNode>(32)));
 
 //   vals.push_back(
 //       std::make_unique<ReturnNode>(std::make_unique<BinaryOperationNode>(
-//           TokenType::GTE, std::make_unique<VariableReferenceNode>("val1"),
+//           TokenType::GTE,
+//           std::make_unique<VariableReferenceNode>("val1"),
 //           std::make_unique<VariableReferenceNode>("val2"))));
 
 //   auto compoundRandom = std::make_unique<CompoundNode>(std::move(vals));

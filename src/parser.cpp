@@ -45,6 +45,7 @@ Token Parser::Expect(TokenType tk) {
 }
 
 std::unique_ptr<ast> Parser::ParseFactor() {
+  // std::cout << tokenName(Peek().type) << std::endl;
   if (Peek().type == TokenType::INT_LITERAL) {
     int val = std::stoi(Peek().value);
     Consume();
@@ -71,14 +72,19 @@ std::unique_ptr<ast> Parser::ParseFactor() {
     Consume();
     return std::make_unique<BooleanNode>(false);
 
+  } else if (Peek().type == ANDPERCENT) {
+    Consume();
+    Token tok = Expect(IDENTIFIER);
+
+    return std::make_unique<PointerVariableReferenceNode>(tok.value);
+
   } else if (Peek().type == STRING_LITERAL) {
     std::string val = Peek().value;
     Consume();
-    if (val.size() == 1) { // treat single-character strings as Char
+    if (val.size() == 1) {
       return std::make_unique<CharNode>(val[0]);
     }
 
-    // multi-character strings become arrays
     std::vector<std::unique_ptr<ast>> outputs;
     for (auto &tok : val) {
       outputs.push_back(std::make_unique<CharNode>(tok));
@@ -89,9 +95,11 @@ std::unique_ptr<ast> Parser::ParseFactor() {
     }
     return std::make_unique<ArrayLiteralNode>(
         llvm::Type::getInt32Ty(*cc.TheContext), std::move(outputs));
-  }
-
-  else if (Peek().type == TokenType::LPAREN) {
+  } else if (Peek().type == STAR) {
+    Consume();
+    auto val = ParseExpression();
+    return std::make_unique<DereferenceNode>(std::move(val));
+  } else if (Peek().type == TokenType::LPAREN) {
     Expect(TokenType::LPAREN);
     auto val = ParseExpression();
     if (!val) {
@@ -311,7 +319,7 @@ std::unique_ptr<CompoundNode> Parser::ParseCompound() {
     }
     std::unique_ptr<ast> val = ParseStatement();
     if (!val) {
-      throw std::runtime_error("ERROR: Invalid syntax " +
+      throw std::runtime_error("ERROR: Invalid syntax, at compound Node, " +
                                std::string(tokenName(Peek().type)));
     }
     vals.push_back(std::move(val));
@@ -434,17 +442,19 @@ std::unique_ptr<ast> Parser::ParseStatement() {
   } else if (Peek().type == FOR) {
     return ParseFor();
   } else if (Peek().type == IDENTIFIER) {
-    return ParseAssignment();
-  } else {
-    if (auto v = ParseExpression()) {
+    auto v = ParseAssignment();
+    if (!v) {
+      v = ParseExpression();
       return v;
-    } else {
-      if (Peek().type == SEMICOLON)
-        return nullptr;
-
-      throw std::runtime_error("UnExpected Token" +
-                               std::string(tokenName(Peek().type)));
     }
+
+    return v;
+  } else {
+    if (Peek().type == SEMICOLON)
+      return nullptr;
+
+    throw std::runtime_error("UnExpected Token" +
+                             std::string(tokenName(Peek().type)));
   }
 }
 
@@ -471,31 +481,26 @@ std::vector<std::unique_ptr<ast>> Parser::Parse() {
 
 int main() {
   std::string src = R"(
-  func to_upper(c:Char) -> Char {
-	if c >= 97 && c <= 122 {
-		return c - 32;
+  func to_upper(c:Char*) -> Char* {
+	let x:Char* = &c;
+    
+	let i:Integer = 0;
+	for (i = 0; i < 12; i= i + 1) {
+		if x[i] >= 97 && x[i] <= 122 {
+			x[i] = x[i] - 32;
+		}
 	}
-  }
 
-  func to_lower(c:Char) -> Char {
-	  if c >= 65 && c <= 90 {
-		 return c + 32;
-	  }
+	return x;
   }
 
   func main() -> Integer {
 	  let a:Integer = 1;
-	  let b:Char[13] = "hello world";
+	  let b:Char[12] = "hello world";
 
-	  let i:Integer = 0;
-
-	  for (i = 0; i < 13; i = i + 1) {
-		b[i] = to_upper(b[i]);
-	  }
-
-	  return 0; 
+	  let something:Char*  = to_upper(&b);
+	  return 0;
   }
-
   )";
 
   Lexer lexer(src);

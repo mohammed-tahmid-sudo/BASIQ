@@ -50,6 +50,7 @@ enum TokenType {
   RBRACE,
   LBRACKET,
   RBRACKET,
+  ANDPERCENT, 
   COLON,
   COMMA,
   DASHGREATER,

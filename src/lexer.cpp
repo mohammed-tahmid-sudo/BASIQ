@@ -2,6 +2,7 @@
 #include <cctype>
 #include <colors.h>
 #include <cstdio>
+#include <iomanip>
 #include <lexer.h>
 #include <string>
 #include <vector>
@@ -248,7 +249,13 @@ std::vector<Token> Lexer::lexer() {
       // Types (case-sensitive as per grammar: Integer, Float, Boolean, String)
       if (id == "Integer" || id == "Float" || id == "Boolean" ||
           id == "String" || id == "Void" || id == "Char") {
-        out.push_back({TYPES, id});
+        std::string fullType = id;
+        while (Peek() == '*') {
+          Consume(); // consume '*'
+          fullType += "POINTER";
+        }
+
+        out.push_back({TYPES, fullType});
         continue;
       }
 
@@ -373,6 +380,10 @@ std::vector<Token> Lexer::lexer() {
       Consume();
       out.push_back({SEMICOLON, ";"});
       break;
+	case '&':
+	  Consume();
+	  out.push_back({ANDPERCENT, "&"});
+	  break; 
     default:
       // Unknown/unsupported char: consume it to avoid infinite loop, but
       // produce IDENTIFIER with single char
@@ -481,6 +492,8 @@ const char *tokenName(TokenType t) {
     return "RBRACKET";
   case STRING_LITERAL:
     return "STRING_LITERAL";
+  case ANDPERCENT:
+	return "ANDPERCENT";
   default:
     return "UNKNOWN";
   }
@@ -491,7 +504,7 @@ const char *tokenName(TokenType t) {
 //   @version "1.0";
 //   @author "Tahmid";
 
-//   let x: Integer = 10;
+//   let x: Integer* = &10;
 //   let y: Float = 3.14;
 
 //   let y: Integer[2] = [21, 12];

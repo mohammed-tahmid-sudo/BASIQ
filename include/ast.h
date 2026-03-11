@@ -263,5 +263,24 @@ struct ArrayAssignNode : ast {
   llvm::Value *codegen(CodegenContext &cc) override;
 };
 
-// struct :wq
+struct SizeOfNode : ast {
+  std::unique_ptr<ast> val;
+
+  SizeOfNode(std::unique_ptr<ast> valval) : val(std::move(valval)) {}
+  std::string repr() override { return "SizeOfNode(" + val->repr() + ")"; }
+
+  llvm::Value *codegen(CodegenContext &cc) override;
+};
+
+struct SyscallNode : ast {
+  std::string name;
+  std::vector<std::unique_ptr<ast>> args;
+  SyscallNode(const std::string &syscall_name,
+              std::vector<std::unique_ptr<ast>> syscall_args)
+      : name(syscall_name), args(std::move(syscall_args)) {}
+  std::string repr() override { return "SYSCALLNODE"; }
+
+  llvm::Value *codegen(CodegenContext &cc) override;
+};
+
 

@@ -162,6 +162,9 @@ std::unique_ptr<ast> Parser::ParseFactor() {
       Expect(RBRACKET);
 
       return std::make_unique<ArrayAccessNode>(name.value, std::move(val));
+
+      return std::make_unique<SizeOfNode>(std::move(val));
+
     } else {
       return std::make_unique<VariableReferenceNode>(name.value);
     }
@@ -172,6 +175,33 @@ std::unique_ptr<ast> Parser::ParseFactor() {
                                std::to_string(val.value.size()));
     }
     return std::make_unique<CharNode>(val.value[0]);
+  } else if (Peek().type == SIZEOF) {
+    Consume();
+    Expect(LPAREN);
+    auto val = ParseExpression();
+    Expect(RPAREN);
+
+    return std::make_unique<SizeOfNode>(std::move(val));
+  } else if (Peek().type == SYSCALL) {
+    Consume();
+    Expect(LPAREN);
+    Token name = Expect(STRING_LITERAL);
+    Expect(COMMA);
+    std::vector<std::unique_ptr<ast>> args;
+    while (Peek().type != RPAREN) {
+      args.push_back(ParseExpression());
+
+      if (Peek().type == COMMA) {
+        Consume();
+        continue;
+      } else {
+        break;
+      }
+    }
+
+	Expect(RPAREN);
+
+    return std::make_unique<SyscallNode>(name.value, std::move(args));
   } else {
     if (Peek().type == SEMICOLON) {
       return nullptr;
@@ -489,9 +519,11 @@ int main() {
 
 	  let i:Integer = 0;
 
-	  for (i = 0; i < 13; i = i + 1) {
+	  for (i = 0; i < sizeof(b); i = i + 1) {
 		b[i] = to_upper(b[i]);
 	  }
+
+	  @Syscall("write",1, b, sizeof(b));
 
 	  return 0; 
   }
@@ -501,11 +533,11 @@ int main() {
   Lexer lexer(src);
   auto program = lexer.lexer();
 
-  int stmtNo = 0;
-  for (const auto &stmt : program) {
-    std::cout << "  " << std::setw(12) << tokenName(stmt.type) << " : '"
-              << stmt.value << "'\n";
-  }
+  // int stmtNo = 0;
+  // for (const auto &stmt : program) {
+  //   std::cout << "  " << std::setw(12) << tokenName(stmt.type) << " : '"
+  //             << stmt.value << "'\n";
+  // }
 
   std::cout << Colors::BOLD << Colors::RED
             << "---------------------------------------------------------------"
@@ -515,9 +547,9 @@ int main() {
             << Colors::RESET << std::endl;
   Parser parser(program, "MYMODULE");
   auto val = parser.Parse();
-  for (auto &v : val) {
-    std::cout << v->repr() << std::endl;
-  }
+  // for (auto &v : val) {
+  //   std::cout << v->repr() << std::endl;
+  // }
 
   auto &cc = parser.getCodegenContext();
   for (auto &v : val) {

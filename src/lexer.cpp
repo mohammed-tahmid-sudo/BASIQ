@@ -244,6 +244,10 @@ std::vector<Token> Lexer::lexer() {
         out.push_back({CLASS, id});
         continue;
       }
+      if (lower == "sizeof") {
+        out.push_back({SIZEOF, id});
+		continue;
+      }
 
       // Types (case-sensitive as per grammar: Integer, Float, Boolean, String)
       if (id == "Integer" || id == "Float" || id == "Boolean" ||
@@ -481,6 +485,8 @@ const char *tokenName(TokenType t) {
     return "RBRACKET";
   case STRING_LITERAL:
     return "STRING_LITERAL";
+  case SIZEOF:
+    return "SIZEOF";
   default:
     return "UNKNOWN";
   }

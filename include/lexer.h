@@ -18,6 +18,7 @@ enum TokenType {
   IN,
   WHILE,
   CLASS,
+  SIZEOF,
   TYPES,
 
   IDENTIFIER,

@@ -1,4 +1,5 @@
 #include "lexer.h"
+#include "llvm/IR/InlineAsm.h"
 #include <alloca.h>
 #include <ast.h>
 #include <cctype>
@@ -807,6 +808,76 @@ llvm::Value *ArrayAssignNode::codegen(CodegenContext &cc) {
 
   return val;
 }
+
+llvm::Value *SizeOfNode::codegen(CodegenContext &cc) {
+  if (!val) {
+    throw std::runtime_error("INVALUD VALUE AT SIZEOF NODE");
+    return nullptr;
+  }
+  // uint32_t type =
+  //     cc.Module->getDataLayout().getTypeAllocSize(val->codegen(cc)->getType());
+
+  return llvm::ConstantExpr::getSizeOf(val->codegen(cc)->getType());
+}
+
+llvm::Value *SyscallNode::codegen(CodegenContext &cc) {
+  // Map syscall names to numbers
+  static std::unordered_map<std::string, int> syscall_numbers = {
+      {"read", 0},
+      {"write", 1},
+      {"open", 2},
+      {"close", 3},
+      // add more syscalls as needed
+  };
+
+  auto it = syscall_numbers.find(name);
+  if (it == syscall_numbers.end()) {
+    llvm::errs() << "Unknown syscall: " << name << "\n";
+    return nullptr;
+  }
+
+  int num = it->second;
+  std::vector<llvm::Value *> llvm_args;
+  for (auto &arg : args) {
+    llvm_args.push_back(arg->codegen(cc));
+  }
+
+  // Ensure we have up to 6 arguments
+  while (llvm_args.size() < 6)
+    llvm_args.push_back(
+        llvm::ConstantInt::get(llvm::Type::getInt64Ty(*cc.TheContext), 0));
+
+  // Cast args to i64 / ptr
+  for (int i = 0; i < 6; i++) {
+    if (!llvm_args[i]->getType()->isIntegerTy(64))
+      llvm_args[i] = cc.Builder->CreatePtrToInt(
+          llvm_args[i], llvm::Type::getInt64Ty(*cc.TheContext));
+  }
+
+  // Inline asm for syscall
+  std::string asm_str = "mov rax, $0\n"
+                        "mov rdi, $1\n"
+                        "mov rsi, $2\n"
+                        "mov rdx, $3\n"
+                        "mov r10, $4\n"
+                        "mov r8, $5\n"
+                        "mov r9, $6\n"
+                        "syscall";
+
+  llvm::InlineAsm *asmSyscall = llvm::InlineAsm::get(
+      llvm::FunctionType::get(
+          llvm::Type::getInt64Ty(*cc.TheContext),
+          std::vector<llvm::Type *>(7, llvm::Type::getInt64Ty(*cc.TheContext)),
+          false),
+      asm_str, "~{rax},~{rdi},~{rsi},~{rdx},~{r10},~{r8},~{r9}", true);
+
+  llvm::Value *syscall_num =
+      llvm::ConstantInt::get(llvm::Type::getInt64Ty(*cc.TheContext), num);
+  llvm_args.insert(llvm_args.begin(), syscall_num);
+
+  return cc.Builder->CreateCall(asmSyscall, llvm_args);
+}
+
 // int main() {
 //   CodegenContext ctx("myprogram");
 //   ctx.pushScope(); // Start Global Scope

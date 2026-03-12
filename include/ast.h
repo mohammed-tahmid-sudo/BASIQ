@@ -1,5 +1,6 @@
 #pragma once
 #include "lexer.h"
+#include <algorithm>
 #include <llvm-18/llvm/IR/IRBuilder.h>
 #include <llvm-18/llvm/IR/LLVMContext.h>
 #include <llvm-18/llvm/IR/Type.h>
@@ -283,4 +284,17 @@ struct SyscallNode : ast {
   llvm::Value *codegen(CodegenContext &cc) override;
 };
 
+struct PointerVariableAssignmentNode : ast {
+  std::string name;
+  std::unique_ptr<ast> val;
+  PointerVariableAssignmentNode(const std::string &s, std::unique_ptr<ast> v)
+      : name(s), val(std::move(v)) {}
 
+  std::string repr() override { return "SYSCALLNODE"; }
+
+  llvm::Value *codegen(CodegenContext &cc) override;
+};
+struct PointerArrayVariableAssignmentNode : ast {};
+struct PointerReferenceNode : ast {};
+struct PointerDeReferenceNode : ast {};
+struct PointerDeRerenceAssingNode : ast {};

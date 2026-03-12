@@ -199,7 +199,7 @@ std::unique_ptr<ast> Parser::ParseFactor() {
       }
     }
 
-	Expect(RPAREN);
+    Expect(RPAREN);
 
     return std::make_unique<SyscallNode>(name.value, std::move(args));
   } else {
@@ -499,66 +499,66 @@ std::vector<std::unique_ptr<ast>> Parser::Parse() {
   return output;
 }
 
-int main() {
-  std::string src = R"(
-  func to_upper(c:Char) -> Char {
-	if c >= 97 && c <= 122 {
-		return c - 32;
-	}
-  }
+// int main() {
+//   std::string src = R"(
+//   func to_upper(c:Char) -> Char {
+// 	if c >= 97 && c <= 122 {
+// 		return c - 32;
+// 	}
+//   }
 
-  func to_lower(c:Char) -> Char {
-	  if c >= 65 && c <= 90 {
-		 return c + 32;
-	  }
-  }
+//   func to_lower(c:Char) -> Char {
+// 	  if c >= 65 && c <= 90 {
+// 		 return c + 32;
+// 	  }
+//   }
 
-  func main() -> Integer {
-	  let a:Integer = 1;
-	  let b:Char[13] = "hello world";
+//   func main() -> Integer {
+// 	  let a:Integer = 1;
+// 	  let b:Char[13] = "hello world";
 
-	  let i:Integer = 0;
+// 	  let i:Integer = 0;
 
-	  for (i = 0; i < sizeof(b); i = i + 1) {
-		b[i] = to_upper(b[i]);
-	  }
+// 	  for (i = 0; i < sizeof(b); i = i + 1) {
+// 		b[i] = to_upper(b[i]);
+// 	  }
 
-	  @Syscall("write",1, b, sizeof(b));
+// 	  @Syscall("write",1, b, sizeof(b));
 
-	  return 0; 
-  }
+// 	  return 0; 
+//   }
 
-  )";
+//   )";
 
-  Lexer lexer(src);
-  auto program = lexer.lexer();
+//   Lexer lexer(src);
+//   auto program = lexer.lexer();
 
-  // int stmtNo = 0;
-  // for (const auto &stmt : program) {
-  //   std::cout << "  " << std::setw(12) << tokenName(stmt.type) << " : '"
-  //             << stmt.value << "'\n";
-  // }
+//   // int stmtNo = 0;
+//   // for (const auto &stmt : program) {
+//   //   std::cout << "  " << std::setw(12) << tokenName(stmt.type) << " : '"
+//   //             << stmt.value << "'\n";
+//   // }
 
-  std::cout << Colors::BOLD << Colors::RED
-            << "---------------------------------------------------------------"
-               "---------------------------------------------------------------"
-               "---------------------------------------------------------------"
-               "-----------------------"
-            << Colors::RESET << std::endl;
-  Parser parser(program, "MYMODULE");
-  auto val = parser.Parse();
-  // for (auto &v : val) {
-  //   std::cout << v->repr() << std::endl;
-  // }
+//   std::cout << Colors::BOLD << Colors::RED
+//             << "---------------------------------------------------------------"
+//                "---------------------------------------------------------------"
+//                "---------------------------------------------------------------"
+//                "-----------------------"
+//             << Colors::RESET << std::endl;
+//   Parser parser(program, "MYMODULE");
+//   auto val = parser.Parse();
+//   // for (auto &v : val) {
+//   //   std::cout << v->repr() << std::endl;
+//   // }
 
-  auto &cc = parser.getCodegenContext();
-  for (auto &v : val) {
-    try {
-      v->codegen(cc);
-    } catch (const std::exception &e) {
-      std::cerr << "Codegen error: " << e.what() << std::endl;
-    }
-  }
+//   auto &cc = parser.getCodegenContext();
+//   for (auto &v : val) {
+//     try {
+//       v->codegen(cc);
+//     } catch (const std::exception &e) {
+//       std::cerr << "Codegen error: " << e.what() << std::endl;
+//     }
+//   }
 
-  cc.Module->print(llvm::outs(), nullptr);
-}
+//   cc.Module->print(llvm::outs(), nullptr);
+// }

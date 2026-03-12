@@ -54,6 +54,7 @@ enum TokenType {
   COLON,
   COMMA,
   DASHGREATER,
+  ANDPERCENT,
   RANGE,
   SEMICOLON,
   // End of file

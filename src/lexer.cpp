@@ -2,6 +2,7 @@
 #include <cctype>
 #include <colors.h>
 #include <cstdio>
+#include <iomanip>
 #include <lexer.h>
 #include <string>
 #include <vector>
@@ -246,13 +247,23 @@ std::vector<Token> Lexer::lexer() {
       }
       if (lower == "sizeof") {
         out.push_back({SIZEOF, id});
-		continue;
+        continue;
       }
 
       // Types (case-sensitive as per grammar: Integer, Float, Boolean, String)
       if (id == "Integer" || id == "Float" || id == "Boolean" ||
           id == "String" || id == "Void" || id == "Char") {
-        out.push_back({TYPES, id});
+
+        std::string typeName = id;
+
+        // Check for pointer
+        skipWhiwSpace(); // optional: allow spaces between type and *
+        if (Peek() == '*') {
+          Consume(); // consume '*'
+          typeName += "POINTER";
+        }
+
+        out.push_back({TYPES, typeName});
         continue;
       }
 
@@ -377,6 +388,10 @@ std::vector<Token> Lexer::lexer() {
       Consume();
       out.push_back({SEMICOLON, ";"});
       break;
+    case '&':
+      Consume();
+      out.push_back({ANDPERCENT, "&"});
+      break;
     default:
       // Unknown/unsupported char: consume it to avoid infinite loop, but
       // produce IDENTIFIER with single char
@@ -487,6 +502,8 @@ const char *tokenName(TokenType t) {
     return "STRING_LITERAL";
   case SIZEOF:
     return "SIZEOF";
+  case ANDPERCENT:
+    return "ANDPERCENT";
   default:
     return "UNKNOWN";
   }
@@ -498,6 +515,7 @@ const char *tokenName(TokenType t) {
 //   @author "Tahmid";
 
 //   let x: Integer = 10;
+//   let something:Integer* = &x;
 //   let y: Float = 3.14;
 
 //   let y: Integer[2] = [21, 12];

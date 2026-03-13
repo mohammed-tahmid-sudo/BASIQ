@@ -285,28 +285,25 @@ struct SyscallNode : ast {
   llvm::Value *codegen(CodegenContext &cc) override;
 };
 
-struct PointerVariableAssignmentNode : ast {
+struct PointerReferenceNode : ast {
+  std::string name;
+  PointerReferenceNode(const std::string &s) : name(s) {}
+
+  std::string repr() override { return "PointerReferenceNode"; }
+
+  llvm::Value *codegen(CodegenContext &cc) override;
+};
+// struct PointerDeReferenceNode : ast {};
+struct PointerDeRerenceAssingNode : ast {
   std::string name;
   std::unique_ptr<ast> val;
-  PointerVariableAssignmentNode(const std::string &s, std::unique_ptr<ast> v)
-      : name(s), val(std::move(v)) {}
-
-  std::string repr() override { return "SYSCALLNODE"; }
-
-  llvm::Value *codegen(CodegenContext &cc) override;
-};
-struct PointerArrayVariableAssignmentNode : ast {
-  std::string name;
   std::unique_ptr<ast> index;
-  std::unique_ptr<ast> value;
 
-  PointerArrayVariableAssignmentNode(const std::string &n,
-                                     std::unique_ptr<ast> i,
-                                     std::unique_ptr<ast> v)
-      : name(n), index(std::move(i)), value(std::move(v)) {}
-  std::string repr() override { return "PointerArrayVariableAssignmentNode"; };
+  PointerDeRerenceAssingNode(const std::string &n, std::unique_ptr<ast> v,
+                             std::unique_ptr<ast> i)
+      : name(n), val(std::move(v)), index(std::move(i)) {}
+
+  std::string repr() override { return "PointerDeReferenceAssignNode"; }
+
   llvm::Value *codegen(CodegenContext &cc) override;
 };
-struct PointerReferenceNode : ast {};
-struct PointerDeReferenceNode : ast {};
-struct PointerDeRerenceAssingNode : ast {};

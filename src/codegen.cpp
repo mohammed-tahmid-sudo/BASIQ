@@ -10,6 +10,7 @@
 #include <llvm-18/llvm/IR/Function.h>
 #include <llvm-18/llvm/IR/Instructions.h>
 #include <llvm-18/llvm/IR/LLVMContext.h>
+#include <llvm-18/llvm/IR/Metadata.h>
 #include <llvm-18/llvm/IR/Type.h>
 #include <llvm-18/llvm/IR/Value.h>
 #include <llvm-18/llvm/IR/Verifier.h>
@@ -140,7 +141,7 @@ llvm::Value *AssignmentNode::codegen(CodegenContext &cc) {
 
   llvm::Value *valueVal = val->codegen(cc);
   if (!valueVal) {
-    llvm::errs() << "Error: RHS expression returned null!\n";
+    llvm::errs() << "Error IN ASSINGMENT NODE: RHS expression returned null!\n";
     return nullptr;
   }
 
@@ -820,13 +821,37 @@ llvm::Value *SyscallNode::codegen(CodegenContext &cc) {
   return cc.Builder->CreateCall(asmSyscall, llvm_args);
 }
 
-llvm::Value *PointerVariableAssignmentNode::codegen(CodegenContext &cc) {
-  return cc.Builder->CreateStore(cc.lookup(name), val->codegen(cc));
+llvm::Value *PointerReferenceNode::codegen(CodegenContext &cc) {
+  llvm::Value *var = cc.lookup(name);
+
+  if (!var) {
+    throw std::runtime_error("CANNOT FIND VALUE " + name);
+  }
+  return var;
 }
-llvm::Value *PointerArrayVariableAssignmentNode::codegen(CodegenContext &cc) {
-  llvm::Value *arrayPtr = cc.lookup(name);
-  llvm::Value *indexVal = index->codegen(cc);
-  llvm::Value *valueVal = value->codegen(cc);
+
+llvm::Value *PointerDeRerenceAssingNode::codegen(CodegenContext &cc) {
+  llvm::Value *arrayVal = cc.lookup(name);
+  if (!arrayVal)
+    throw std::runtime_error("Unknown pointer array: " + name);
+
+  llvm::Type *elemType = cc.lookup(name)->getType();
+
+  llvm::Value *idx = index->codegen(cc);
+  llvm::Value *zero =
+      llvm::ConstantInt::get(llvm::Type::getInt32Ty(*cc.TheContext), 0);
+  
+  llvm::Value *elemPtr =
+      cc.Builder->CreateGEP(elemType, arrayVal, {zero, idx}, "ptr_elem");
+
+  llvm::Type *loadedPtrType = elemType;
+
+  llvm::Value *loadedPtr =
+      cc.Builder->CreateLoad(loadedPtrType, elemPtr, "loaded_ptr");
+
+  llvm::Value *value = val->codegen(cc);
+
+  return cc.Builder->CreateStore(value, loadedPtr);
 }
 
 // int main() {

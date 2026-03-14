@@ -830,7 +830,7 @@ llvm::Value *PointerReferenceNode::codegen(CodegenContext &cc) {
   return var;
 }
 
-llvm::Value *PointerDeRerenceAssingNode::codegen(CodegenContext &cc) {
+llvm::Value *PointerDeReferenceAssingNode::codegen(CodegenContext &cc) {
   llvm::Value *arrayVal = cc.lookup(name);
   if (!arrayVal)
     throw std::runtime_error("Unknown pointer array: " + name);
@@ -840,7 +840,7 @@ llvm::Value *PointerDeRerenceAssingNode::codegen(CodegenContext &cc) {
   llvm::Value *idx = index->codegen(cc);
   llvm::Value *zero =
       llvm::ConstantInt::get(llvm::Type::getInt32Ty(*cc.TheContext), 0);
-  
+
   llvm::Value *elemPtr =
       cc.Builder->CreateGEP(elemType, arrayVal, {zero, idx}, "ptr_elem");
 
@@ -852,6 +852,18 @@ llvm::Value *PointerDeRerenceAssingNode::codegen(CodegenContext &cc) {
   llvm::Value *value = val->codegen(cc);
 
   return cc.Builder->CreateStore(value, loadedPtr);
+}
+llvm::Value *DeReferenceNode::codegen(CodegenContext &cc) {
+  llvm::Value *val = cc.lookup(name);
+
+  if (!val) {
+    throw std::runtime_error("UNKNOWN POINTER " + name);
+  }
+  if (!val->getType->isPointerTy()){
+	  throw std::runtime_error("EXPECTED A POINTER");
+  }
+
+
 }
 
 // int main() {

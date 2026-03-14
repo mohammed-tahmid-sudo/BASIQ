@@ -202,6 +202,21 @@ std::unique_ptr<ast> Parser::ParseFactor() {
     Expect(RPAREN);
 
     return std::make_unique<SyscallNode>(name.value, std::move(args));
+  } else if (Peek().type == ANDPERCENT) {
+    Consume();
+    Token name = Expect(IDENTIFIER);
+    return std::make_unique<PointerReferenceNode>(name.value);
+
+  } else if (Peek().type == STAR) {
+    Consume();
+    if (Peek().type == IDENTIFIER) {
+      Token v = Peek();
+      Consume();
+      return std::make_unique<VariableReferenceNode>(v.value);
+    }
+	std::cerr << "Huh";
+	return nullptr;
+
   } else {
     if (Peek().type == SEMICOLON) {
       return nullptr;
@@ -499,66 +514,74 @@ std::vector<std::unique_ptr<ast>> Parser::Parse() {
   return output;
 }
 
-// int main() {
-//   std::string src = R"(
-//   func to_upper(c:Char) -> Char {
-// 	if c >= 97 && c <= 122 {
-// 		return c - 32;
-// 	}
-//   }
+int main() {
+  std::string src = R"(
+  func to_upper(c:Char) -> Char {
+	if c >= 97 && c <= 122 {
+		return c - 32;
+	} else {
+	   return 0;
+	}
+  }
 
-//   func to_lower(c:Char) -> Char {
-// 	  if c >= 65 && c <= 90 {
-// 		 return c + 32;
-// 	  }
-//   }
+  func to_lower(c:Char) -> Char {
+	  if c >= 65 && c <= 90 {
+		 return c + 32;
+	  } else { 
+		 return 0;
+	  }
+  }
 
-//   func main() -> Integer {
-// 	  let a:Integer = 1;
-// 	  let b:Char[13] = "hello world";
+  func main() -> Integer {
+	  let a:Integer = 1;
+	  let b:Char[13] = "hello world";
 
-// 	  let i:Integer = 0;
+	  let i:Integer = 0;
 
-// 	  for (i = 0; i < sizeof(b); i = i + 1) {
-// 		b[i] = to_upper(b[i]);
-// 	  }
+	  for (i = 0; i < sizeof(b); i = i + 1) {
+		b[i] = to_upper(b[i]);
+	  }
 
-// 	  @Syscall("write",1, b, sizeof(b));
+	  @Syscall("write",1, b, sizeof(b));
+	  let x:Integer = 5;
+	  let y:Integer* = &x;
+	  let z:Integer = *y;
 
-// 	  return 0; 
-//   }
+	  return 0;
+  }
 
-//   )";
 
-//   Lexer lexer(src);
-//   auto program = lexer.lexer();
+  )";
 
-//   // int stmtNo = 0;
-//   // for (const auto &stmt : program) {
-//   //   std::cout << "  " << std::setw(12) << tokenName(stmt.type) << " : '"
-//   //             << stmt.value << "'\n";
-//   // }
+  Lexer lexer(src);
+  auto program = lexer.lexer();
 
-//   std::cout << Colors::BOLD << Colors::RED
-//             << "---------------------------------------------------------------"
-//                "---------------------------------------------------------------"
-//                "---------------------------------------------------------------"
-//                "-----------------------"
-//             << Colors::RESET << std::endl;
-//   Parser parser(program, "MYMODULE");
-//   auto val = parser.Parse();
-//   // for (auto &v : val) {
-//   //   std::cout << v->repr() << std::endl;
-//   // }
+  // int stmtNo = 0;
+  // for (const auto &stmt : program) {
+  //   std::cout << "  " << std::setw(12) << tokenName(stmt.type) << " : '"
+  //             << stmt.value << "'\n";
+  // }
 
-//   auto &cc = parser.getCodegenContext();
-//   for (auto &v : val) {
-//     try {
-//       v->codegen(cc);
-//     } catch (const std::exception &e) {
-//       std::cerr << "Codegen error: " << e.what() << std::endl;
-//     }
-//   }
+  std::cout << Colors::BOLD << Colors::RED
+            << "---------------------------------------------------------------"
+               "---------------------------------------------------------------"
+               "---------------------------------------------------------------"
+               "-----------------------"
+            << Colors::RESET << std::endl;
+  Parser parser(program, "MYMODULE");
+  auto val = parser.Parse();
+  for (auto &v : val) {
+    std::cout << v->repr() << std::endl;
+  }
 
-//   cc.Module->print(llvm::outs(), nullptr);
-// }
+  auto &cc = parser.getCodegenContext();
+  for (auto &v : val) {
+    try {
+      v->codegen(cc);
+    } catch (const std::exception &e) {
+      std::cerr << "Codegen error: " << e.what() << std::endl;
+    }
+  }
+
+  cc.Module->print(llvm::outs(), nullptr);
+}

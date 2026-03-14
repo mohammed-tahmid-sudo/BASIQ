@@ -293,17 +293,29 @@ struct PointerReferenceNode : ast {
 
   llvm::Value *codegen(CodegenContext &cc) override;
 };
-// struct PointerDeReferenceNode : ast {};
-struct PointerDeRerenceAssingNode : ast {
+
+struct PointerDeReferenceAssingNode : ast {
   std::string name;
   std::unique_ptr<ast> val;
   std::unique_ptr<ast> index;
 
-  PointerDeRerenceAssingNode(const std::string &n, std::unique_ptr<ast> v,
-                             std::unique_ptr<ast> i)
+  PointerDeReferenceAssingNode(const std::string &n, std::unique_ptr<ast> v,
+                               std::unique_ptr<ast> i)
       : name(n), val(std::move(v)), index(std::move(i)) {}
 
   std::string repr() override { return "PointerDeReferenceAssignNode"; }
 
   llvm::Value *codegen(CodegenContext &cc) override;
 };
+
+struct DeReferenceNode : ast {
+  std::string name;
+
+  DeReferenceNode(const std::string &n) : name(n) {}
+  std::string repr() override { return "PointerDeReferenceNode"; }
+
+  llvm::Value *codegen(CodegenContext &cc) override;
+};
+// struct PointerDereferenceNode : ast {
+// 	std::string name
+// };

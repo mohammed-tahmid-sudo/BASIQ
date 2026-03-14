@@ -20,6 +20,17 @@
 #include <stdexcept>
 #include <vector>
 
+llvm::Type *GetPointeeType(llvm::Type *type, llvm::LLVMContext &context) {
+  if (type == llvm::PointerType::get(llvm::Type::getInt32Ty(context), 0))
+    return llvm::Type::getInt32Ty(context);
+  if (type == llvm::PointerType::get(llvm::Type::getFloatTy(context), 0))
+    return llvm::Type::getFloatTy(context);
+  if (type == llvm::PointerType::get(llvm::Type::getInt8Ty(context), 0))
+    return llvm::Type::getInt8Ty(context);
+  if (type == llvm::PointerType::get(llvm::Type::getInt1Ty(context), 0))
+    return llvm::Type::getInt1Ty(context);
+  return nullptr;
+}
 llvm::Type *GetTypeNonVoid(Token type, llvm::LLVMContext &context) {
   std::string t = type.value;
 
@@ -94,7 +105,6 @@ llvm::Value *VariableDeclareNode::codegen(CodegenContext &cc) {
   if (!cc.Builder->GetInsertBlock())
     std::cout << "NO INSERT BLOCK\n";
 
-  // Treat arrays with size > 1 as real arrays
   if (arraySize.has_value() && *arraySize > 1) {
     llvm::ArrayType *arrayType = llvm::ArrayType::get(elementType, *arraySize);
     alloca = cc.Builder->CreateAlloca(arrayType, nullptr, name);
@@ -128,7 +138,14 @@ llvm::Value *VariableDeclareNode::codegen(CodegenContext &cc) {
     cc.Builder->CreateStore(initVal, alloca);
   }
 
-  cc.addVariable(name, alloca);
+  llvm::Type *pointeeType = nullptr;
+  if (elementType->isPointerTy()) {
+    Token baseTypeToken;
+    baseTypeToken.value =
+        Type.value.substr(0, Type.value.size() - 7); // strip "POINTER"
+    pointeeType = GetTypeNonVoid(baseTypeToken, *cc.TheContext);
+  }
+  cc.addVariable(name, alloca, elementType, pointeeType);
   return alloca;
 }
 
@@ -211,23 +228,26 @@ llvm::Value *FunctionNode::codegen(CodegenContext &cc) {
 
   llvm::Type *retTy = GetTypeVoid(ReturnType, *cc.TheContext);
   auto *FT = llvm::FunctionType::get(retTy, argTypes, false);
-
   auto *Fn = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, name,
                                     cc.Module.get());
 
   auto *BB = llvm::BasicBlock::Create(*cc.TheContext, "entry", Fn);
   cc.Builder->SetInsertPoint(BB);
-
   cc.pushScope();
 
   unsigned i = 0;
   for (auto &arg : Fn->args()) {
     const auto &argName = args[i++].first;
     arg.setName(argName);
-
-    auto *alloca = cc.Builder->CreateAlloca(arg.getType(), nullptr, argName);
+    llvm::Type *argType = arg.getType();
+    auto *alloca = cc.Builder->CreateAlloca(argType, nullptr, argName);
     cc.Builder->CreateStore(&arg, alloca);
-    cc.addVariable(argName, alloca);
+
+    llvm::Type *pointeeType = nullptr;
+    if (argType->isPointerTy())
+      pointeeType = GetPointeeType(argType, *cc.TheContext);
+
+    cc.addVariable(argName, alloca, argType, pointeeType);
   }
 
   llvm::Value *retVal = content->codegen(cc);
@@ -423,15 +443,15 @@ llvm::Value *BinaryOperationNode::codegen(CodegenContext &cc) {
     return cc.Builder->CreateICmpNE(LHS, RHS, "netmp");
   }
   case TokenType::AND: {
-    if (!LHS->getType()->isIntegerTy(1)) {
+    // Convert LHS to i1 if needed
+    if (!LHS->getType()->isIntegerTy(1))
       LHS = cc.Builder->CreateICmpNE(
           LHS, llvm::ConstantInt::get(LHS->getType(), 0), "lhsbool");
-    }
 
-    if (!RHS->getType()->isIntegerTy(1)) {
+    // Convert RHS to i1 if needed
+    if (!RHS->getType()->isIntegerTy(1))
       RHS = cc.Builder->CreateICmpNE(
           RHS, llvm::ConstantInt::get(RHS->getType(), 0), "rhsbool");
-    }
 
     return cc.Builder->CreateAnd(LHS, RHS, "andtmp");
   }
@@ -854,6 +874,25 @@ llvm::Value *PointerDeReferenceAssingNode::codegen(CodegenContext &cc) {
   return cc.Builder->CreateStore(value, loadedPtr);
 }
 
+llvm::Value *DeReferenceNode::codegen(CodegenContext &cc) {
+  llvm::Value *var = cc.lookup(name);
+  if (!var) {
+    llvm::errs() << "Unknown variable '" << name << "'\n";
+    return nullptr;
+  }
+
+  llvm::Type *ptrType = cc.lookupType(name);
+  if (!ptrType || !ptrType->isPointerTy()) {
+    llvm::errs() << "'" << name << "' is not a pointer\n";
+    return nullptr;
+  }
+
+  llvm::Value *ptrVal = cc.Builder->CreateLoad(ptrType, var, name + "_ptr");
+
+  llvm::Type *elementType = cc.lookupElementType(name);
+
+  return cc.Builder->CreateLoad(elementType, ptrVal, "deref_" + name);
+}
 
 // int main() {
 //   CodegenContext ctx("myprogram");

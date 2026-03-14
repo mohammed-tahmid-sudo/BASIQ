@@ -1,6 +1,5 @@
 #pragma once
 #include "lexer.h"
-#include <algorithm>
 #include <llvm-18/llvm/IR/IRBuilder.h>
 #include <llvm-18/llvm/IR/LLVMContext.h>
 #include <llvm-18/llvm/IR/Type.h>
@@ -10,11 +9,17 @@
 #include <strings.h>
 #include <vector>
 
+struct VWT {
+  llvm::Value *val;
+  llvm::Type *type;
+  llvm::Type *elementType;
+};
+
 struct CodegenContext {
   std::unique_ptr<llvm::LLVMContext> TheContext;
   std::unique_ptr<llvm::IRBuilder<>> Builder;
   std::unique_ptr<llvm::Module> Module;
-  std::vector<std::unordered_map<std::string, llvm::Value *>> NamedValuesStack;
+  std::vector<std::unordered_map<std::string, VWT>> NamedValuesStack;
 
   llvm::BasicBlock *BreakBB = nullptr;
   llvm::BasicBlock *ContinueBB = nullptr;
@@ -23,16 +28,31 @@ struct CodegenContext {
   void pushScope() { NamedValuesStack.push_back({}); }
   void popScope() { NamedValuesStack.pop_back(); }
 
-  void addVariable(const std::string &name, llvm::Value *value) {
-    NamedValuesStack.back()[name] = value;
+  void addVariable(const std::string &name, llvm::Value *value,
+                   llvm::Type *Type, llvm::Type* elemenType) {
+    NamedValuesStack.back()[name] = VWT{value, Type, elemenType};
   }
 
   llvm::Value *lookup(const std::string &name) {
     for (auto it = NamedValuesStack.rbegin(); it != NamedValuesStack.rend();
-         ++it) {
+         ++it)
       if (it->count(name))
-        return (*it)[name];
-    }
+        return (*it)[name].val;
+    return nullptr;
+  }
+
+  llvm::Type *lookupType(const std::string &name) {
+    for (auto it = NamedValuesStack.rbegin(); it != NamedValuesStack.rend();
+         ++it)
+      if (it->count(name))
+        return (*it)[name].type;
+    return nullptr;
+  }
+  llvm::Type *lookupElementType(const std::string &name) {
+    for (auto it = NamedValuesStack.rbegin(); it != NamedValuesStack.rend();
+         ++it)
+      if (it->count(name))
+        return (*it)[name].elementType;
     return nullptr;
   }
 
@@ -103,15 +123,6 @@ struct VariableDeclareNode : ast {
   llvm::Value *codegen(CodegenContext &cc) override;
 };
 
-// struct VariableDeclareNode : ast {
-//   std::string name;
-//   Token Type;
-//   std::unique_ptr<ast> val;
-//   VariableDeclareNode(const std::string &n, std::unique_ptr<ast> v, Token t)
-//       : name(n), val(std::move(v)), Type(t) {}
-//   std::string repr() override;
-//   llvm::Value *codegen(CodegenContext &cc) override;
-// };
 
 struct AssignmentNode : ast {
   std::string name;

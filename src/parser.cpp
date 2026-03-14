@@ -208,10 +208,24 @@ std::unique_ptr<ast> Parser::ParseFactor() {
     return std::make_unique<PointerReferenceNode>(name.value);
 
   } else if (Peek().type == STAR) {
+
     Consume();
     if (Peek().type == IDENTIFIER) {
       Token v = Peek();
       Consume();
+      if (Peek().type == LBRACKET) {
+        Consume();
+        auto idx = ParseExpression();
+        Expect(RBRACKET);
+
+        if (Peek().type == EQ) {
+          Consume();
+          auto val = ParseExpression();
+          return std::make_unique<PointerDeReferenceAssingNode>(
+              v.value, std::move(val), std::move(idx));
+        }
+      }
+
       return std::make_unique<DeReferenceNode>(v.value);
     }
     std::cerr << "Huh";
@@ -229,10 +243,7 @@ std::unique_ptr<ast> Parser::ParseFactor() {
 
 std::unique_ptr<ast> Parser::ParseTerm() {
   std::unique_ptr<ast> left = ParseFactor();
-  while (Peek().type == TokenType::STAR || Peek().type == TokenType::SLASH ||
-         Peek().type == TokenType::GT || Peek().type == GTE ||
-         Peek().type == LT || Peek().type == LTE || Peek().type == EQEQ ||
-         Peek().type == AND) {
+  while (Peek().type == TokenType::STAR || Peek().type == TokenType::SLASH) {
     TokenType type = Peek().type;
     Consume();
 
@@ -248,22 +259,46 @@ std::unique_ptr<ast> Parser::ParseTerm() {
   return left;
 }
 
-std::unique_ptr<ast> Parser::ParseExpression() {
-
+std::unique_ptr<ast> Parser::ParseAddSub() {
   std::unique_ptr<ast> left = ParseTerm();
   while (Peek().type == TokenType::PLUS || Peek().type == TokenType::MINUS) {
     TokenType type = Peek().type;
     Consume();
-
     std::unique_ptr<ast> right = ParseTerm();
-
     if (!right)
-      throw std::runtime_error("EXPECTED A NUMBER AFTER + OR -");
-
+      throw std::runtime_error("Expected expression after + or -");
     left = std::make_unique<BinaryOperationNode>(type, std::move(left),
                                                  std::move(right));
   }
+  return left;
+}
+std::unique_ptr<ast> Parser::ParseComparison() {
+  std::unique_ptr<ast> left = ParseAddSub();
+  while (Peek().type == TokenType::GT || Peek().type == TokenType::GTE ||
+         Peek().type == TokenType::LT || Peek().type == TokenType::LTE ||
+         Peek().type == TokenType::EQEQ) {
+    TokenType type = Peek().type;
+    Consume();
+    std::unique_ptr<ast> right = ParseAddSub();
+    if (!right)
+      throw std::runtime_error("Expected expression after comparison");
+    left = std::make_unique<BinaryOperationNode>(type, std::move(left),
+                                                 std::move(right));
+  }
+  return left;
+}
 
+std::unique_ptr<ast> Parser::ParseExpression() {
+  std::unique_ptr<ast> left = ParseComparison();
+  while (Peek().type == TokenType::AND) {
+    TokenType type = Peek().type;
+    Consume();
+    std::unique_ptr<ast> right = ParseComparison();
+    if (!right)
+      throw std::runtime_error("Expected expression after &&");
+    left = std::make_unique<BinaryOperationNode>(type, std::move(left),
+                                                 std::move(right));
+  }
   return left;
 }
 
@@ -544,8 +579,9 @@ int main() {
 
 	  @Syscall("write",1, b, sizeof(b));
 	  let x:Integer = 5;
-	  let y:Integer* = &x;
+	  let y:Integer*[5] = [&x,&x, &x, &x, &x];
 	  let z:Integer = *y;
+	  *y[1] = 10; 
 
 	  return 0;
   }

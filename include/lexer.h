@@ -57,6 +57,7 @@ enum TokenType {
   ANDPERCENT,
   RANGE,
   SEMICOLON,
+  VARIDIC, 
   // End of file
   EOF_TOKEN
 };
@@ -76,6 +77,7 @@ public:
   Lexer(std::string inp) : input(inp) {}
   char Peek() const;
   char PeekNext() const;
+  char PeekNextNext() const;
   void Consume();
   void skipWhiwSpace();
   static std::string toLower(const std::string &s) {

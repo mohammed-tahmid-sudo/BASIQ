@@ -227,7 +227,7 @@ llvm::Value *FunctionNode::codegen(CodegenContext &cc) {
     argTypes.push_back(a.second);
 
   llvm::Type *retTy = GetTypeVoid(ReturnType, *cc.TheContext);
-  auto *FT = llvm::FunctionType::get(retTy, argTypes, false);
+  auto *FT = llvm::FunctionType::get(retTy, argTypes, isVaridic);
   auto *Fn = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, name,
                                     cc.Module.get());
 
@@ -585,8 +585,8 @@ llvm::Value *CallNode::codegen(CodegenContext &cc) {
   if (!callee)
     return nullptr;
 
-  if (callee->arg_size() != args.size())
-    return nullptr;
+  //   if (callee->arg_size() != args.size())
+  //     return nullptr;
 
   std::vector<llvm::Value *> argVals;
   for (auto &arg : args) {
@@ -784,22 +784,6 @@ llvm::Value *SizeOfNode::codegen(CodegenContext &cc) {
 }
 
 llvm::Value *SyscallNode::codegen(CodegenContext &cc) {
-  // Map syscall names to numbers
-  static std::unordered_map<std::string, int> syscall_numbers = {
-      {"read", 0},
-      {"write", 1},
-      {"open", 2},
-      {"close", 3},
-      // add more syscalls as needed
-  };
-
-  auto it = syscall_numbers.find(name);
-  if (it == syscall_numbers.end()) {
-    llvm::errs() << "Unknown syscall: " << name << "\n";
-    return nullptr;
-  }
-
-  int num = it->second;
   std::vector<llvm::Value *> llvm_args;
   for (auto &arg : args) {
     llvm_args.push_back(arg->codegen(cc));
@@ -835,7 +819,7 @@ llvm::Value *SyscallNode::codegen(CodegenContext &cc) {
       asm_str, "~{rax},~{rdi},~{rsi},~{rdx},~{r10},~{r8},~{r9}", true);
 
   llvm::Value *syscall_num =
-      llvm::ConstantInt::get(llvm::Type::getInt64Ty(*cc.TheContext), num);
+      llvm::ConstantInt::get(llvm::Type::getInt64Ty(*cc.TheContext), name);
   llvm_args.insert(llvm_args.begin(), syscall_num);
 
   return cc.Builder->CreateCall(asmSyscall, llvm_args);
@@ -894,9 +878,13 @@ llvm::Value *DeReferenceNode::codegen(CodegenContext &cc) {
   return cc.Builder->CreateLoad(elementType, ptrVal, "deref_" + name);
 }
 
-llvm::Value *StructNode::codegen(CodegenContext &cc) {
-
-};
+llvm::Value *VaStartNode::codegen(CodegenContext &cc) {
+  return cc.Builder->CreateCall(
+      cc.Module->getOrInsertFunction(
+          "llvm.va_start", llvm::Type::getVoidTy(*cc.TheContext),
+          llvm::PointerType::get(llvm::Type::getInt8Ty(*cc.TheContext), false)),
+      {val});
+}
 
 // int main() {
 //   CodegenContext ctx("myprogram");

@@ -1,5 +1,6 @@
 #pragma once
 #include "lexer.h"
+#include <iostream>
 #include <llvm-18/llvm/IR/IRBuilder.h>
 #include <llvm-18/llvm/IR/LLVMContext.h>
 #include <llvm-18/llvm/IR/Type.h>
@@ -148,13 +149,15 @@ struct CompoundNode : ast {
 struct FunctionNode : ast {
   std::string name;
   std::vector<std::pair<std::string, llvm::Type *>> args;
+  bool isVaridic;
   std::unique_ptr<ast> content;
   Token ReturnType;
 
   FunctionNode(const std::string &s,
                std::vector<std::pair<std::string, llvm::Type *>> ars,
-               std::unique_ptr<ast> cntnt, Token RetType)
-      : name(s), args(ars), content(std::move(cntnt)), ReturnType(RetType) {}
+               std::unique_ptr<ast> cntnt, Token RetType, bool varidic)
+      : name(s), args(ars), content(std::move(cntnt)), ReturnType(RetType),
+        isVaridic(varidic) {}
 
   std::string repr() override;
   llvm::Value *codegen(CodegenContext &cc) override;
@@ -285,10 +288,10 @@ struct SizeOfNode : ast {
 };
 
 struct SyscallNode : ast {
-  std::string name;
+  // std::string name;
+  int name;
   std::vector<std::unique_ptr<ast>> args;
-  SyscallNode(const std::string &syscall_name,
-              std::vector<std::unique_ptr<ast>> syscall_args)
+  SyscallNode(int syscall_name, std::vector<std::unique_ptr<ast>> syscall_args)
       : name(syscall_name), args(std::move(syscall_args)) {}
   std::string repr() override { return "SYSCALLNODE"; }
 
@@ -327,17 +330,10 @@ struct DeReferenceNode : ast {
   llvm::Value *codegen(CodegenContext &cc) override;
 };
 
-struct StructNode : ast {
-  std::string name;
-
-  // field name + type
-  std::vector<std::pair<std::string, llvm::Type *>> fields;
-
-  StructNode(const std::string &n,
-             std::vector<std::pair<std::string, llvm::Type *>> f)
-      : name(n), fields(std::move(f)) {}
-
-  std::string repr() override { return "StructNode(" + name + ")"; }
+struct VaStartNode : ast {
+  llvm::Value *val;
+  VaStartNode(llvm::Value *V) : val(V) {}
+  std::string repr() override { return "VAStartNode"; }
 
   llvm::Value *codegen(CodegenContext &cc) override;
 };

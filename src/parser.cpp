@@ -119,7 +119,6 @@ std::unique_ptr<ast> Parser::ParseFactor() {
 
   } else if (Peek().type == TokenType::IDENTIFIER) {
     Token name = Peek();
-    std::cout << tokenName(name.type) << " : " << name.value << std::endl;
     Consume();
     if (Peek().type == EQ) {
       Consume();
@@ -130,7 +129,6 @@ std::unique_ptr<ast> Parser::ParseFactor() {
       return std::make_unique<AssignmentNode>(name.value, std::move(val));
 
     } else if (Peek().type == LPAREN) {
-      std::cout << "COMMING HERE" << std::endl;
 
       Consume();
       std::vector<std::unique_ptr<ast>> args;
@@ -186,7 +184,8 @@ std::unique_ptr<ast> Parser::ParseFactor() {
   } else if (Peek().type == SYSCALL) {
     Consume();
     Expect(LPAREN);
-    Token name = Expect(STRING_LITERAL);
+    // Token name = Expect(STRING_LITERAL);
+    Token name = Expect(INT_LITERAL);
     Expect(COMMA);
     std::vector<std::unique_ptr<ast>> args;
     while (Peek().type != RPAREN) {
@@ -202,7 +201,8 @@ std::unique_ptr<ast> Parser::ParseFactor() {
 
     Expect(RPAREN);
 
-    return std::make_unique<SyscallNode>(name.value, std::move(args));
+    return std::make_unique<SyscallNode>(std::stoi(name.value),
+                                         std::move(args));
   } else if (Peek().type == ANDPERCENT) {
     Consume();
     Token name = Expect(IDENTIFIER);
@@ -340,6 +340,7 @@ std::unique_ptr<VariableDeclareNode> Parser::ParseVariable() {
 
 std::unique_ptr<FunctionNode> Parser::ParseFunction() {
   Expect(TokenType::FUNC);
+  bool varidicType = false;
   Token name = Expect(TokenType::IDENTIFIER);
   Expect(LPAREN);
   std::vector<std::pair<std::string, llvm::Type *>> args;
@@ -365,6 +366,12 @@ std::unique_ptr<FunctionNode> Parser::ParseFunction() {
 
     if (Peek().type == COMMA) {
       Consume();
+      if (Peek().type == VARIDIC) {
+        std::cout << "COMMING HErE" << std::endl;
+        Consume();
+        varidicType = true;
+        break;
+      }
     } else {
       break;
     }
@@ -377,7 +384,7 @@ std::unique_ptr<FunctionNode> Parser::ParseFunction() {
     throw std::runtime_error("Function missing body");
 
   return std::make_unique<FunctionNode>(name.value, args, std::move(block),
-                                        rettype);
+                                        rettype, varidicType);
 }
 
 std::unique_ptr<CompoundNode> Parser::ParseCompound() {
@@ -518,7 +525,7 @@ std::unique_ptr<ast> Parser::ParseStatement() {
     // if (auto v = ParseAssignment()) {
     //   return v;
     // } else {
-      return ParseExpression();
+    return ParseExpression();
     // }
   } else {
     if (auto v = ParseExpression()) {
@@ -556,49 +563,57 @@ std::vector<std::unique_ptr<ast>> Parser::Parse() {
 
 int main() {
   std::string src = R"(
- // func to_upper(c:Char) -> Char {
-	// if c >= 97 && c <= 122 {
-		// return c - 32;
-	// } else {
-	   // return 0;
-	// }
-  // }
 
-  // func to_lower(c:Char) -> Char {
-	  // if c >= 65 && c <= 90 {
-		 // return c + 32;
-	  // } else { 
-		 // return 0;
-	  // }
-  // }
   func to_upper(c:Char*) -> Void {
 	let i:Integer = 0;
 
 	while (*c[i] != 0) {
-		
+
 	if *c[i] >= 97 && *c[i] <= 122 {
 		*c[i] = *c[i] - 32;
-	} 
-	i = i + 1; 
+	}
+	i = i + 1;
 	}
 
   }
 
-  func main() -> Integer {
-	  let a:Integer = 1;
-	  let b:Char[13] = "hello world";
+  func to_lower(c:Char*) -> Void {
+	let i:Integer = 0;
 
-	  let i:Integer = 0;
+	while (*c[i] != 0) {
+		if *c[i] > 65 && *c[i] <= 90 {
+			*c[i] = *c[i] + 32;
+		}
 
-	  // for (i = 0; i < sizeof(b); i = i + 1) {
-		// b[i] = to_upper(b[i]);
-	  // }
-	  to_upper(&b);
-
-	  @Syscall("write",1, b, sizeof(b));
-	  return 0;
+		i = i + 1;
+	}
   }
 
+  func string_concat(a:Char*, b:Char*) -> Void {
+	let i:Integer = 0;
+	while (*b[i] != 0) i=i+1;
+
+	let j:Integer = 0;
+
+	while (*a[j] != 0) {
+		*b[i + j] = *a[j];
+		j=j+1;
+	}
+	*b[i+j] = 0;
+  }
+
+func printf(s:Char*, ...) -> Void {
+}
+  func main() -> Integer {
+	  let a:Char[255] = "hello world";
+	  let b:Char[3] = "yo";
+
+	  // to_upper(&b);
+	  // to_lower(&b);
+	  string_concat(&a, &b);
+	  @Syscall(1, 1, a, sizeof(a));
+	  return 0;
+  }
 
   )";
 

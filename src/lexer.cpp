@@ -2,7 +2,6 @@
 #include <cctype>
 #include <colors.h>
 #include <cstdio>
-#include <iomanip>
 #include <lexer.h>
 #include <string>
 #include <vector>
@@ -525,31 +524,29 @@ const char *tokenName(TokenType t) {
 
 // int main() {
 //   std::string src = R"(
-//   // @version "1.0";
-//   // @author "Tahmid";
+//   @version "1.0";
+//   @author "Tahmid";
 
-//   // let x: Integer = 10;
-//   // let something:Integer* = &x;
-//   // let y: Float = 3.14;
+//   let x: Integer = 10;
+//   let something:Integer* = &x;
+//   let y: Float = 3.14;
 
-//   // let y: Integer[2] = [21, 12];
-//   // ley something: Char{32} = {'a', 'b', 'c', 'd'. 'e' , '\0'};
+//   let y: Integer[2] = [21, 12];
+//   ley something: Char{32} = {'a', 'b', 'c', 'd'. 'e' , '\0'};
 
-//   // func add(a: Integer, b: Integer) -> void {
-// 	// return a + b;
-//   // }
+//   func add(a: Integer, b: Integer) -> void {
+// 	return a + b;
+//   }
 
-//   // if x >= 5 {
-// 	// 2 + 1;
-//   // } else {
-// 	// 2 + 1;
-//   // }
+//   if x >= 5 {
+// 	2 + 1;
+//   } else {
+// 	2 + 1;
+//   }
 
-//   // for i in 0..10 {
-// 	// 2 + 1;
-//   // }
-
-// ...
+//   for i in 0..10 {
+// 	2 + 1;
+//   }
 
 //   )";
 

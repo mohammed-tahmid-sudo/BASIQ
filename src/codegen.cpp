@@ -306,7 +306,6 @@ llvm::Value *WhileNode::codegen(CodegenContext &cc) {
         "while.cond.to.i1");
   }
   cc.Builder->CreateCondBr(condVal, bodyBB, afterBB);
-
   cc.Builder->SetInsertPoint(bodyBB);
 
   llvm::BasicBlock *oldBreak = cc.BreakBB;
@@ -327,6 +326,8 @@ llvm::Value *WhileNode::codegen(CodegenContext &cc) {
     cc.Builder->CreateBr(condBB);
 
   cc.Builder->SetInsertPoint(afterBB);
+  if (!afterBB->getTerminator())
+    cc.Builder->CreateBr(afterBB); // placeholder, won't be needed normally
   return llvm::Constant::getNullValue(llvm::Type::getInt32Ty(Ctx));
 }
 
@@ -839,16 +840,16 @@ llvm::Value *PointerDeReferenceAssingNode::codegen(CodegenContext &cc) {
   if (!arrayVal)
     throw std::runtime_error("Unknown pointer array: " + name);
 
-  llvm::Type *elemType = cc.lookup(name)->getType();
+  llvm::Type *elemType = cc.lookupElementType(name);
 
   llvm::Value *idx = index->codegen(cc);
   llvm::Value *zero =
       llvm::ConstantInt::get(llvm::Type::getInt32Ty(*cc.TheContext), 0);
 
   llvm::Value *elemPtr =
-      cc.Builder->CreateGEP(elemType, arrayVal, {zero, idx}, "ptr_elem");
+      cc.Builder->CreateGEP(elemType, arrayVal, {idx}, "ptr_elem");
 
-  llvm::Type *loadedPtrType = elemType;
+  llvm::Type *loadedPtrType = cc.lookupType(name);
 
   llvm::Value *loadedPtr =
       cc.Builder->CreateLoad(loadedPtrType, elemPtr, "loaded_ptr");

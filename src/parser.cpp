@@ -2,6 +2,8 @@
 #include "lexer.h"
 #include <cctype>
 #include <colors.h>
+#include <cstdlib>
+#include <iomanip>
 #include <iostream>
 #include <llvm-18/llvm/IR/DerivedTypes.h>
 #include <llvm-18/llvm/IR/InstrTypes.h>
@@ -13,6 +15,13 @@
 #include <llvm-18/llvm/Support/Error.h>
 #include <llvm-18/llvm/Support/MathExtras.h>
 #include <llvm-18/llvm/Support/raw_ostream.h>
+#include <llvm-18/llvm/TargetParser/Host.h>
+#include <llvm/IR/IRPrintingPasses.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/LegacyPassManager.h>
+#include <llvm/IR/Module.h>
+#include <llvm/Support/FileSystem.h>
+#include <llvm/Support/raw_ostream.h>
 #include <memory>
 #include <parser.h>
 #include <stdexcept>
@@ -413,8 +422,8 @@ std::unique_ptr<CompoundNode> Parser::ParseCompound() {
 std::unique_ptr<ReturnNode> Parser::ParseReturn() {
   Expect(RETURN);
   auto val = ParseExpression();
-  if (!val)
-    throw std::runtime_error("ERROR: Return statement MIssing Expression");
+  // if (!val)
+  //   throw std::runtime_error("ERROR: Return statement MIssing Expression");
   // std::cout << tokenName(Peek().type) << std::endl;
   Expect(SEMICOLON);
   return std::make_unique<ReturnNode>(std::move(val));
@@ -561,85 +570,183 @@ std::vector<std::unique_ptr<ast>> Parser::Parse() {
   return output;
 }
 
-int main() {
-  std::string src = R"(
+// ===============================
+// Utility Functions
+// ===============================
 
-  func to_upper(c:Char*) -> Void {
-	let i:Integer = 0;
+// Print LLVM IR with line numbers
+void printIRWithLineNumbers(llvm::Module *module) {
+  std::string irStr;
+  llvm::raw_string_ostream rso(irStr);
+  module->print(rso, nullptr);
+  rso.flush();
 
-	while (*c[i] != 0) {
-
-	if *c[i] >= 97 && *c[i] <= 122 {
-		*c[i] = *c[i] - 32;
-	}
-	i = i + 1;
-	}
-
+  std::istringstream iss(irStr);
+  std::string line;
+  int lineno = 1;
+  while (std::getline(iss, line)) {
+    std::cout << std::setw(4) << lineno << ": " << line << "\n";
+    lineno++;
   }
-
-  func to_lower(c:Char*) -> Void {
-	let i:Integer = 0;
-
-	while (*c[i] != 0) {
-		if *c[i] > 65 && *c[i] <= 90 {
-			*c[i] = *c[i] + 32;
-		}
-
-		i = i + 1;
-	}
-  }
-
-  func string_concat(a:Char*, b:Char*) -> Void {
-	let i:Integer = 0;
-	while (*b[i] != 0) i=i+1;
-
-	let j:Integer = 0;
-
-	while (*a[j] != 0) {
-		*b[i + j] = *a[j];
-		j=j+1;
-	}
-	*b[i+j] = 0;
-  }
-
-func printf(s:Char*, ...) -> Void {
 }
-  func main() -> Integer {
-	  let a:Char[255] = "hello world";
-	  let b:Char[3] = "yo";
 
-	  // to_upper(&b);
-	  // to_lower(&b);
-	  string_concat(&a, &b);
-	  @Syscall(1, 1, a, sizeof(a));
-	  return 0;
+// Save IR to file, compile to object, and link to executable
+void saveIRAndCompile(llvm::Module *module, const std::string &filename) {
+  // --- Save LLVM IR to a file ---
+  std::error_code EC;
+  llvm::raw_fd_ostream dest(filename + ".ll", EC, llvm::sys::fs::OF_None);
+  if (EC) {
+    std::cerr << "Could not open file: " << EC.message() << std::endl;
+    return;
+  }
+  module->print(dest, nullptr);
+  dest.close();
+
+  // --- Compile IR to object file using llc ---
+  std::string objFile = filename + ".o";
+  std::string llcCmd = "llc " + filename + ".ll -filetype=obj -o " + objFile;
+  if (system(llcCmd.c_str()) != 0) {
+    std::cerr << "Error running llc" << std::endl;
+    return;
   }
 
-  )";
+  // --- Link object file to create executable using clang ---
+  std::string exeFile = filename + "_exec";
+  std::string clangCmd = "clang " + objFile + " -o " + exeFile;
+  if (system(clangCmd.c_str()) != 0) {
+    std::cerr << "Error running clang" << std::endl;
+    return;
+  }
 
+  std::cout << "Executable created: " << exeFile << std::endl;
+}
+
+// ===============================
+// Main Function
+// ===============================
+
+int main() {
+  // --- Source Code to Compile ---
+  std::string src = R"(
+func to_upper(c:Char*) -> Void {
+    let i:Integer = 0;
+    while (*c[i] != 0) {
+        if *c[i] >= 97 && *c[i] <= 122 {
+            *c[i] = *c[i] - 32;
+        }
+        i = i + 1;
+    }
+}
+
+func to_lower(c:Char*) -> Void {
+    let i:Integer = 0;
+    while (*c[i] != 0) {
+        if *c[i] > 65 && *c[i] <= 90 {
+            *c[i] = *c[i] + 32;
+        }
+        i = i + 1;
+    }
+}
+
+func string_concat(a:Char*, b:Char*) -> Void {
+    let i:Integer = 0;
+	while (*b[i] != 0) { i=i+1; }
+let j:Integer = 0;
+while (*a[j] != 0) {
+    *b[i + j] = *a[j];
+    j=j+1;
+}
+*b[i+j] = 0;
+}
+
+func itoa(n:Integer, str:Char*) -> Void {
+    let i:Integer = 0;
+    let isNegetive:Boolean = false;
+
+    if n == 0 {
+        *str[i] = 48;
+        *str[i] = 0;
+        i = i + 1;
+        return;
+    }
+
+    if n < 0 { 
+        isNegetive = true;
+        n = n -n*2;
+    }
+
+    while (n != 0) {
+        *str[i] =  n - (n / 10) * 10; 
+        i = i + 1;
+        n = n / 10;
+    }
+
+    if isNegetive { 
+        *str[i] = 45;
+        i = i + 1; 
+    }
+
+    *str[i] = 0;
+
+    let j:Integer = 0; 
+    let k:Integer = i - 1; 
+
+    while (j < k) { 
+        let tmp:Char = *str[j];
+        *str[j] = *str[k];
+        *str[k] = tmp;
+        j = j + 1; 
+        k = k - 1;
+    }
+
+}
+
+func main() -> Integer {
+    let a:Char[255] = "hello world";
+    let b:Char[3] = "yo";
+    let x:Float = 12.12;
+    let x:Integer = 12;
+    let y:Char[255] = "";
+
+    itoa(&x, &y);
+    string_concat(&a, &b);
+    @Syscall(1, 1, a, sizeof(a));
+    return 0;
+}
+)";
+
+  // --- Lexical Analysis ---
   Lexer lexer(src);
   auto program = lexer.lexer();
 
-  // int stmtNo = 0;
-  // for (const auto &stmt : program) {
-  //   std::cout << "  " << std::setw(12) << tokenName(stmt.type) << " : '"
-  //             << stmt.value << "'\n";
-  // }
+  std::cout << "Tokens:\n";
+  int count = 0;
+  for (const auto &stmt : program) {
+    std::cout << tokenName(stmt.type) << ":'" << stmt.value << "'  ";
+    count++;
+    if (count % 5 == 0) // 5 tokens per line
+      std::cout << "\n";
+  }
+  if (count % 5 != 0)
+    std::cout << "\n"; // print final newline if needed
 
   std::cout << Colors::BOLD << Colors::RED
-            << "---------------------------------------------------------------"
-               "---------------------------------------------------------------"
-               "---------------------------------------------------------------"
-               "-----------------------"
+            << "\n-------------------------------PARSED-AST--------------------"
+               "------------------\n"
             << Colors::RESET << std::endl;
+
+  // --- Parsing ---
   Parser parser(program, "MYMODULE");
-  auto val = parser.Parse();
-  // for (auto &v : val) {
-  //   std::cout << v->repr() << std::endl;
+  auto astNodes = parser.Parse();
+
+  // std::cout << "AST Nodes:\n";
+  // for (auto &v : astNodes) {
+  //     std::cout << v->repr() << std::endl;
   // }
 
+  // --- Code Generation ---
   auto &cc = parser.getCodegenContext();
-  for (auto &v : val) {
+  for (auto &v : astNodes) {
     try {
       v->codegen(cc);
     } catch (const std::exception &e) {
@@ -647,5 +754,18 @@ func printf(s:Char*, ...) -> Void {
     }
   }
 
-  cc.Module->print(llvm::outs(), nullptr);
+  std::cout << Colors::BOLD << Colors::RED
+            << "\n-------------------------------LLVM_IR-----------------------"
+               "---------------\n"
+            << Colors::RESET << std::endl;
+  printIRWithLineNumbers(cc.Module.get());
+
+  std::cout << Colors::BOLD << Colors::RED
+            << "\n-------------------------------COMPILED_OUTPUT---------------"
+               "-----------------------\n"
+            << Colors::RESET << std::endl;
+  // --- Compile IR to executable ---
+  saveIRAndCompile(cc.Module.get(), "output");
+
+  return 0;
 }

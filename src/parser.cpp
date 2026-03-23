@@ -535,9 +535,11 @@ std::unique_ptr<ast> Parser::ParseStatement() {
     //   return v;
     // } else {
     return ParseExpression();
+
     // }
   } else {
     if (auto v = ParseExpression()) {
+      Expect(SEMICOLON);
       return v;
     } else {
       if (Peek().type == SEMICOLON)
@@ -641,7 +643,7 @@ func to_upper(c:Char*) -> Void {
 func to_lower(c:Char*) -> Void {
     let i:Integer = 0;
     while (*c[i] != 0) {
-        if *c[i] > 65 && *c[i] <= 90 {
+        if *c[i] >= 65 && *c[i] <= 90 {
             *c[i] = *c[i] + 32;
         }
         i = i + 1;
@@ -662,35 +664,28 @@ while (*a[j] != 0) {
 func itoa(n:Integer, str:Char*) -> Void {
     let i:Integer = 0;
     let isNegetive:Boolean = false;
-
     if n == 0 {
-        *str[i] = 48;
-        *str[i] = 0;
+        *str[i] = '0';
         i = i + 1;
+        *str[i] = '\0';
         return;
     }
-
     if n < 0 { 
         isNegetive = true;
-        n = n -n*2;
+        n = n - n * 2;
     }
-
     while (n != 0) {
-        *str[i] =  n - (n / 10) * 10; 
+        *str[i] = n - (n / 10) * 10 + '0'; 
         i = i + 1;
         n = n / 10;
     }
-
     if isNegetive { 
-        *str[i] = 45;
+        *str[i] = '-';
         i = i + 1; 
     }
-
-    *str[i] = 0;
-
+    *str[i] = '\0';
     let j:Integer = 0; 
     let k:Integer = i - 1; 
-
     while (j < k) { 
         let tmp:Char = *str[j];
         *str[j] = *str[k];
@@ -698,19 +693,18 @@ func itoa(n:Integer, str:Char*) -> Void {
         j = j + 1; 
         k = k - 1;
     }
-
 }
 
 func main() -> Integer {
     let a:Char[255] = "hello world";
     let b:Char[3] = "yo";
-    let x:Float = 12.12;
     let x:Integer = 12;
     let y:Char[255] = "";
 
-    itoa(&x, &y);
+    itoa(x, &y);
     string_concat(&a, &b);
-    @Syscall(1, 1, a, sizeof(a));
+    @Syscall(1, 1, &a, 11, 0, 0);
+
     return 0;
 }
 )";
@@ -764,7 +758,7 @@ func main() -> Integer {
             << "\n-------------------------------COMPILED_OUTPUT---------------"
                "-----------------------\n"
             << Colors::RESET << std::endl;
-  // --- Compile IR to executable ---
+
   saveIRAndCompile(cc.Module.get(), "output");
 
   return 0;

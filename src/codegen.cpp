@@ -53,7 +53,7 @@ llvm::Type *GetTypeNonVoid(Token type, llvm::LLVMContext &context) {
   } else if (t == "BOOLEAN") {
     return llvm::Type::getInt1Ty(context);
   } else if (t == "CHAR") {
-    return llvm::Type::getInt32Ty(context);
+    return llvm::Type::getInt8Ty(context);
   }
 
   throw std::runtime_error("Invalid Type: " + type.value);
@@ -71,8 +71,7 @@ llvm::Type *GetTypeVoid(Token type, llvm::LLVMContext &context) {
 }
 
 llvm::Value *CharNode::codegen(CodegenContext &cc) {
-  // UNICODE
-  return llvm::ConstantInt::get(llvm::Type::getInt32Ty(*cc.TheContext), val,
+  return llvm::ConstantInt::get(llvm::Type::getInt8Ty(*cc.TheContext), val,
                                 false);
 }
 
@@ -252,7 +251,9 @@ llvm::Value *FunctionNode::codegen(CodegenContext &cc) {
 
   llvm::Value *retVal = content->codegen(cc);
 
-  if (!BB->getTerminator()) {
+  // Check the CURRENT insert block, not the entry block
+  llvm::BasicBlock *currentBB = cc.Builder->GetInsertBlock();
+  if (!currentBB->getTerminator()) {
     if (retTy->isVoidTy()) {
       cc.Builder->CreateRetVoid();
     } else {
@@ -326,8 +327,7 @@ llvm::Value *WhileNode::codegen(CodegenContext &cc) {
     cc.Builder->CreateBr(condBB);
 
   cc.Builder->SetInsertPoint(afterBB);
-  if (!afterBB->getTerminator())
-    cc.Builder->CreateBr(afterBB); // placeholder, won't be needed normally
+
   return llvm::Constant::getNullValue(llvm::Type::getInt32Ty(Ctx));
 }
 
@@ -336,50 +336,96 @@ llvm::Value *IfNode::codegen(CodegenContext &cc) {
   if (!condV)
     return nullptr;
 
-  // bool conversion
   condV = cc.Builder->CreateICmpNE(
       condV, llvm::ConstantInt::get(condV->getType(), 0), "ifcond");
 
   llvm::Function *func = cc.Builder->GetInsertBlock()->getParent();
 
-  // create blocks
   llvm::BasicBlock *thenBB =
       llvm::BasicBlock::Create(*cc.TheContext, "then", func);
-  llvm::BasicBlock *elseBB = nullptr;
-  if (elseBlock)
-    elseBB = llvm::BasicBlock::Create(*cc.TheContext, "else", func);
-
+  llvm::BasicBlock *elseBB =
+      elseBlock ? llvm::BasicBlock::Create(*cc.TheContext, "else", func)
+                : nullptr;
   llvm::BasicBlock *mergeBB =
       llvm::BasicBlock::Create(*cc.TheContext, "ifcont", func);
 
-  // conditional branch
   if (elseBB)
     cc.Builder->CreateCondBr(condV, thenBB, elseBB);
   else
     cc.Builder->CreateCondBr(condV, thenBB, mergeBB);
 
-  // then
+  // --- then ---
   cc.Builder->SetInsertPoint(thenBB);
   cc.pushScope();
   thenBlock->codegen(cc);
   cc.popScope();
-  cc.Builder->CreateBr(mergeBB);
-  thenBB = cc.Builder->GetInsertBlock();
+  if (!cc.Builder->GetInsertBlock()->getTerminator()) // ← ADD THIS CHECK
+    cc.Builder->CreateBr(mergeBB);
 
-  // else (if present)
+  // --- else ---
   if (elseBB) {
     cc.Builder->SetInsertPoint(elseBB);
     cc.pushScope();
     elseBlock->codegen(cc);
     cc.popScope();
-    cc.Builder->CreateBr(mergeBB);
-    elseBB = cc.Builder->GetInsertBlock();
+    if (!cc.Builder->GetInsertBlock()->getTerminator()) // ← AND THIS
+      cc.Builder->CreateBr(mergeBB);
   }
 
-  // merge
+  // --- merge ---
   cc.Builder->SetInsertPoint(mergeBB);
   return nullptr;
 }
+
+// llvm::Value *IfNode::codegen(CodegenContext &cc) {
+//   llvm::Value *condV = condition->codegen(cc);
+//   if (!condV)
+//     return nullptr;
+
+//   // bool conversion
+//   condV = cc.Builder->CreateICmpNE(
+//       condV, llvm::ConstantInt::get(condV->getType(), 0), "ifcond");
+
+//   llvm::Function *func = cc.Builder->GetInsertBlock()->getParent();
+
+//   // create blocks
+//   llvm::BasicBlock *thenBB =
+//       llvm::BasicBlock::Create(*cc.TheContext, "then", func);
+//   llvm::BasicBlock *elseBB = nullptr;
+//   if (elseBlock)
+//     elseBB = llvm::BasicBlock::Create(*cc.TheContext, "else", func);
+
+//   llvm::BasicBlock *mergeBB =
+//       llvm::BasicBlock::Create(*cc.TheContext, "ifcont", func);
+
+//   // conditional branch
+//   if (elseBB)
+//     cc.Builder->CreateCondBr(condV, thenBB, elseBB);
+//   else
+//     cc.Builder->CreateCondBr(condV, thenBB, mergeBB);
+
+//   // then
+//   cc.Builder->SetInsertPoint(thenBB);
+//   cc.pushScope();
+//   thenBlock->codegen(cc);
+//   cc.popScope();
+//   cc.Builder->CreateBr(mergeBB);
+//   thenBB = cc.Builder->GetInsertBlock();
+
+//   // else (if present)
+//   if (elseBB) {
+//     cc.Builder->SetInsertPoint(elseBB);
+//     cc.pushScope();
+//     elseBlock->codegen(cc);
+//     cc.popScope();
+//     cc.Builder->CreateBr(mergeBB);
+//     elseBB = cc.Builder->GetInsertBlock();
+//   }
+
+//   // merge
+//   cc.Builder->SetInsertPoint(mergeBB);
+//   return nullptr;
+// }
 
 llvm::Value *BinaryOperationNode::codegen(CodegenContext &cc) {
   llvm::Value *LHS = Left->codegen(cc);
@@ -784,46 +830,72 @@ llvm::Value *SizeOfNode::codegen(CodegenContext &cc) {
   return llvm::ConstantExpr::getSizeOf(val->codegen(cc)->getType());
 }
 
+llvm::Value *castToI64(llvm::Value *v, CodegenContext &cc,
+                       const std::string &varName = "") {
+  llvm::Type *i64Ty = llvm::Type::getInt64Ty(*cc.TheContext);
+
+  // Already i64
+  if (v->getType()->isIntegerTy(64))
+    return v;
+
+  // Single integer smaller than 64-bit → extend
+  if (v->getType()->isIntegerTy())
+    return cc.Builder->CreateZExt(v, i64Ty);
+
+  // Pointer or array stored in context
+  if (!varName.empty()) {
+    llvm::Type *type = cc.lookupType(varName);
+    llvm::Type *elemType = cc.lookupElementType(varName);
+
+    if (type && elemType) {
+      if (elemType->isIntegerTy(8)) {
+        // Arrays or pointers of i8 → cast to integer
+        if (type->isArrayTy())
+          v = cc.Builder->CreateBitCast(
+              v, llvm::PointerType::get(llvm::Type::getInt8Ty(*cc.TheContext),
+                                        false));
+        return cc.Builder->CreatePtrToInt(v, i64Ty);
+      }
+    }
+  }
+
+  // Float → integer
+  if (v->getType()->isFloatingPointTy())
+    return cc.Builder->CreateFPToUI(v, i64Ty);
+
+  llvm_unreachable("Unsupported type for syscall argument");
+}
+
 llvm::Value *SyscallNode::codegen(CodegenContext &cc) {
+  llvm::Type *i64Ty = llvm::Type::getInt64Ty(*cc.TheContext);
   std::vector<llvm::Value *> llvm_args;
+
+  // Generate code and cast each arg to i64
   for (auto &arg : args) {
-    llvm_args.push_back(arg->codegen(cc));
+    llvm::Value *v = arg->codegen(cc);
+    llvm_args.push_back(v);
   }
 
-  // Ensure we have up to 6 arguments
+  // Zero-pad to 6 arguments
   while (llvm_args.size() < 6)
-    llvm_args.push_back(
-        llvm::ConstantInt::get(llvm::Type::getInt64Ty(*cc.TheContext), 0));
+    llvm_args.push_back(llvm::ConstantInt::get(i64Ty, 0));
 
-  // Cast args to i64 / ptr
-  for (int i = 0; i < 6; i++) {
-    if (!llvm_args[i]->getType()->isIntegerTy(64))
-      llvm_args[i] = cc.Builder->CreatePtrToInt(
-          llvm_args[i], llvm::Type::getInt64Ty(*cc.TheContext));
-  }
+  // Syscall number
+  llvm::Value *syscall_num = llvm::ConstantInt::get(i64Ty, name);
 
-  // Inline asm for syscall
-  std::string asm_str = "mov rax, $0\n"
-                        "mov rdi, $1\n"
-                        "mov rsi, $2\n"
-                        "mov rdx, $3\n"
-                        "mov r10, $4\n"
-                        "mov r8, $5\n"
-                        "mov r9, $6\n"
-                        "syscall";
+  // Final argument list: syscall number first
+  std::vector<llvm::Value *> final_args = {syscall_num};
+  final_args.insert(final_args.end(), llvm_args.begin(), llvm_args.begin() + 6);
 
   llvm::InlineAsm *asmSyscall = llvm::InlineAsm::get(
-      llvm::FunctionType::get(
-          llvm::Type::getInt64Ty(*cc.TheContext),
-          std::vector<llvm::Type *>(7, llvm::Type::getInt64Ty(*cc.TheContext)),
-          false),
-      asm_str, "~{rax},~{rdi},~{rsi},~{rdx},~{r10},~{r8},~{r9}", true);
+      llvm::FunctionType::get(i64Ty, std::vector<llvm::Type *>(7, i64Ty),
+                              false),
+      "syscall",
+      "={rax},{rax},{rdi},{rsi},{rdx},{r10},{r8},{r9},~{rcx},~{r11},~{memory}",
+      true // hasSideEffects
+  );
 
-  llvm::Value *syscall_num =
-      llvm::ConstantInt::get(llvm::Type::getInt64Ty(*cc.TheContext), name);
-  llvm_args.insert(llvm_args.begin(), syscall_num);
-
-  return cc.Builder->CreateCall(asmSyscall, llvm_args);
+  return cc.Builder->CreateCall(asmSyscall, final_args);
 }
 
 llvm::Value *PointerReferenceNode::codegen(CodegenContext &cc) {
@@ -839,24 +911,13 @@ llvm::Value *PointerDeReferenceAssingNode::codegen(CodegenContext &cc) {
   llvm::Value *arrayVal = cc.lookup(name);
   if (!arrayVal)
     throw std::runtime_error("Unknown pointer array: " + name);
-
   llvm::Type *elemType = cc.lookupElementType(name);
-
   llvm::Value *idx = index->codegen(cc);
-  llvm::Value *zero =
-      llvm::ConstantInt::get(llvm::Type::getInt32Ty(*cc.TheContext), 0);
-
   llvm::Value *elemPtr =
       cc.Builder->CreateGEP(elemType, arrayVal, {idx}, "ptr_elem");
-
-  llvm::Type *loadedPtrType = cc.lookupType(name);
-
-  llvm::Value *loadedPtr =
-      cc.Builder->CreateLoad(loadedPtrType, elemPtr, "loaded_ptr");
-
   llvm::Value *value = val->codegen(cc);
-
-  return cc.Builder->CreateStore(value, loadedPtr);
+  return cc.Builder->CreateStore(value,
+                                 elemPtr); // store directly to GEP result
 }
 
 llvm::Value *DeReferenceNode::codegen(CodegenContext &cc) {

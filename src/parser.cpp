@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
+#include <llvm-18/llvm/ADT/STLExtras.h>
 #include <llvm-18/llvm/IR/DerivedTypes.h>
 #include <llvm-18/llvm/IR/InstrTypes.h>
 #include <llvm-18/llvm/IR/Instruction.h>
@@ -101,6 +102,17 @@ std::unique_ptr<ast> Parser::ParseFactor() {
 
   else if (Peek().type == TokenType::LPAREN) {
     Expect(TokenType::LPAREN);
+
+    if (Peek().type == TYPES) {
+      Token type = Peek();
+      Expect(TYPES);
+      Expect(RPAREN);
+      auto val = ParseExpression();
+
+      return std::make_unique<CastNode>(std::move(val),
+                                        GetTypeNonVoid(type, *cc.TheContext));
+    }
+
     auto val = ParseExpression();
     if (!val) {
       throw std::runtime_error("VAL IS A NULLPTR");
@@ -234,6 +246,7 @@ std::unique_ptr<ast> Parser::ParseFactor() {
           return std::make_unique<PointerDeReferenceAssingNode>(
               v.value, std::move(val), std::move(idx));
         }
+        return std::make_unique<DeReferenceNode>(v.value);
       }
 
       return std::make_unique<DeReferenceNode>(v.value);
@@ -531,12 +544,11 @@ std::unique_ptr<ast> Parser::ParseStatement() {
   } else if (Peek().type == FOR) {
     return ParseFor();
   } else if (Peek().type == IDENTIFIER) {
-    // if (auto v = ParseAssignment()) {
-    //   return v;
-    // } else {
-    return ParseExpression();
-
-    // }
+    if (auto v = ParseAssignment()) {
+      return v;
+    } else {
+      return ParseExpression();
+    }
   } else {
     if (auto v = ParseExpression()) {
       Expect(SEMICOLON);
@@ -630,79 +642,76 @@ void saveIRAndCompile(llvm::Module *module, const std::string &filename) {
 int main() {
   // --- Source Code to Compile ---
   std::string src = R"(
-func to_upper(c:Char*) -> Void {
-    let i:Integer = 0;
-    while (*c[i] != 0) {
-        if *c[i] >= 97 && *c[i] <= 122 {
-            *c[i] = *c[i] - 32;
-        }
-        i = i + 1;
-    }
-}
+// func to_upper(c:Char*) -> Void {
+//     let i:Integer = 0;
+//     while (*c[i] != 0) {
+//         if *c[i] >= 97 && *c[i] <= 122 {
+//             *c[i] = *c[i] - 32;
+//         }
+//         i = i + 1;
+//     }
+// }
 
-func to_lower(c:Char*) -> Void {
-    let i:Integer = 0;
-    while (*c[i] != 0) {
-        if *c[i] >= 65 && *c[i] <= 90 {
-            *c[i] = *c[i] + 32;
-        }
-        i = i + 1;
-    }
-}
+// func to_lower(c:Char*) -> Void {
+//     let i:Integer = 0;
+//     while (*c[i] != 0) {
+//         if *c[i] >= 65 && *c[i] <= 90 {
+//             *c[i] = *c[i] + 32;
+//         }
+//         i = i + 1;
+//     }
+// }
 
-func string_concat(a:Char*, b:Char*) -> Void {
-    let i:Integer = 0;
-	while (*b[i] != 0) { i=i+1; }
-let j:Integer = 0;
-while (*a[j] != 0) {
-    *b[i + j] = *a[j];
-    j=j+1;
-}
-*b[i+j] = 0;
-}
+// func string_concat(a:Char*, b:Char*) -> Void {
+//     let i:Integer = 0;
+//     while (*a[i] != 0) { i = i + 1; }  // find end of a
+//     let j:Integer = 0;
+//     while (*b[j] != 0) {               // walk b
+//         *a[i + j] = *b[j];            // append b onto end of a
+//         j = j + 1;
+//     }
+//     *a[i + j] = 0;
+// }
 
-func itoa(n:Integer, str:Char*) -> Void {
-    let i:Integer = 0;
-    let isNegetive:Boolean = false;
-    if n == 0 {
-        *str[i] = '0';
-        i = i + 1;
-        *str[i] = '\0';
-        return;
-    }
-    if n < 0 { 
-        isNegetive = true;
-        n = n - n * 2;
-    }
-    while (n != 0) {
-        *str[i] = n - (n / 10) * 10 + '0'; 
-        i = i + 1;
-        n = n / 10;
-    }
-    if isNegetive { 
-        *str[i] = '-';
-        i = i + 1; 
-    }
-    *str[i] = '\0';
-    let j:Integer = 0; 
-    let k:Integer = i - 1; 
-    while (j < k) { 
-        let tmp:Char = *str[j];
-        *str[j] = *str[k];
-        *str[k] = tmp;
-        j = j + 1; 
-        k = k - 1;
-    }
-}
+// func itoa(n:Integer, str:Char*) -> Void {
+//     let i:Integer = 0;
+//     let isNegetive:Boolean = false;
+//     if n == 0 {
+//         *str[i] = '0';
+//         i = i + 1;
+//         *str[i] = '\0';
+//         return;
+//     }
+//     if n < 0 { 
+//         isNegetive = true;
+//         n = n - n * 2;
+//     }
+//     while (n != 0) {
+//         *str[i] = (Char)(n - (n / 10) * 10 + 48); 
+//         i = i + 1;
+//         n = n / 10;
+//     }
+//     if isNegetive { 
+//         *str[i] = '-';
+//         i = i + 1; 
+//     }
+//     *str[i] = '\0';
+//     let j:Integer = 0; 
+//     let k:Integer = i - 1; 
+//     while (j < k) { 
+//         let tmp:Char = *str[j];
+//         *str[j] = *str[k];
+//         *str[k] = tmp;
+//         j = j + 1; 
+//         k = k - 1;
+//     }
+// }
 
 func main() -> Integer {
     let a:Char[255] = "hello world";
-    let b:Char[3] = "yo";
-    let x:Integer = 12;
-    let y:Char[255] = "";
 
-    itoa(x, &y);
-    string_concat(&a, &b);
+	a[2] = 'k';
+
     @Syscall(1, 1, &a, 11, 0, 0);
 
     return 0;
@@ -735,7 +744,7 @@ func main() -> Integer {
 
   // std::cout << "AST Nodes:\n";
   // for (auto &v : astNodes) {
-  //     std::cout << v->repr() << std::endl;
+  //   std::cout << v->repr() << std::endl;
   // }
 
   // --- Code Generation ---

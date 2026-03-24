@@ -38,9 +38,7 @@ expr            ::= literal
                   | func_call
                   | "(" expr ")"
 
-binary_op       ::= "+" | "-" | "*" | "/" | "==" | "!=" | "<" | ">" | "<=" | ">=" | "&&" | "||"
-
-
+binary_op       ::= "+" | "-" | "*" | "/" | "==" | "!=" | "<" | ">" | "<=" | ">=" | "&&" | "||" | "!="
 
 literal         ::= integer_literal
                   | float_literal
@@ -67,13 +65,13 @@ for_stmt ::= "for" "(" (var_decl | assignment) ";"
 while_stmt      ::= "while" expr "{" { statement ";" } "}"
 
 // Classes
-class_decl      ::= "class" identifier "{" { class_member ";" } "}"
-class_member    ::= var_decl
-                  | func_decl
-                  | constructor_decl
+<!-- class_decl      ::= "class" identifier "{" { class_member ";" } "}" -->
+<!-- class_member    ::= var_decl -->
+<!--                   | func_decl -->
+<!--                   | constructor_decl -->
 
 // Constructor (C-style, same name as class)
-constructor_decl ::= "func" identifier "(" [ param_list ] ")" "{" { statement ";" } "}"
+<!-- constructor_decl ::= "func" identifier "(" [ param_list ] ")" "{" { statement ";" } "}" -->
 
 // Identifiers and literals
 identifier      ::= letter { letter | digit | "_" }

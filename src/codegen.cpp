@@ -31,6 +31,7 @@ llvm::Type *GetPointeeType(llvm::Type *type, llvm::LLVMContext &context) {
     return llvm::Type::getInt1Ty(context);
   return nullptr;
 }
+
 llvm::Type *GetTypeNonVoid(Token type, llvm::LLVMContext &context) {
   std::string t = type.value;
 
@@ -911,13 +912,19 @@ llvm::Value *PointerDeReferenceAssingNode::codegen(CodegenContext &cc) {
   llvm::Value *arrayVal = cc.lookup(name);
   if (!arrayVal)
     throw std::runtime_error("Unknown pointer array: " + name);
+
+  llvm::Type *ptrType = cc.lookupType(name);
   llvm::Type *elemType = cc.lookupElementType(name);
+
+  llvm::Value *actualPtr =
+      cc.Builder->CreateLoad(ptrType, arrayVal, name + "_ptr");
+
   llvm::Value *idx = index->codegen(cc);
   llvm::Value *elemPtr =
-      cc.Builder->CreateGEP(elemType, arrayVal, {idx}, "ptr_elem");
+      cc.Builder->CreateGEP(elemType, actualPtr, {idx}, "ptr_elem");
+
   llvm::Value *value = val->codegen(cc);
-  return cc.Builder->CreateStore(value,
-                                 elemPtr); // store directly to GEP result
+  return cc.Builder->CreateStore(value, elemPtr);
 }
 
 llvm::Value *DeReferenceNode::codegen(CodegenContext &cc) {
@@ -940,12 +947,55 @@ llvm::Value *DeReferenceNode::codegen(CodegenContext &cc) {
   return cc.Builder->CreateLoad(elementType, ptrVal, "deref_" + name);
 }
 
-llvm::Value *VaStartNode::codegen(CodegenContext &cc) {
-  return cc.Builder->CreateCall(
-      cc.Module->getOrInsertFunction(
-          "llvm.va_start", llvm::Type::getVoidTy(*cc.TheContext),
-          llvm::PointerType::get(llvm::Type::getInt8Ty(*cc.TheContext), false)),
-      {val});
+llvm::Value *castValue(llvm::IRBuilder<> &builder, llvm::Value *val,
+                       llvm::Type *targetType, bool isSigned) {
+  llvm::Type *srcType = val->getType();
+
+  if (srcType == targetType)
+    return val;
+
+  // ===== Integer ↔ Integer (covers CHAR <-> INT, BOOL, etc) =====
+  if (srcType->isIntegerTy() && targetType->isIntegerTy()) {
+    return builder.CreateIntCast(val, targetType, isSigned);
+  }
+
+  // ===== Integer → Float =====
+  if (srcType->isIntegerTy() && targetType->isFloatingPointTy()) {
+    return isSigned ? builder.CreateSIToFP(val, targetType)
+                    : builder.CreateUIToFP(val, targetType);
+  }
+
+  // ===== Float → Integer (covers float -> char too) =====
+  if (srcType->isFloatingPointTy() && targetType->isIntegerTy()) {
+    return isSigned ? builder.CreateFPToSI(val, targetType)
+                    : builder.CreateFPToUI(val, targetType);
+  }
+
+  // ===== Float ↔ Float =====
+  if (srcType->isFloatingPointTy() && targetType->isFloatingPointTy()) {
+    return builder.CreateFPCast(val, targetType);
+  }
+
+  // ===== Pointer stuff (optional for now) =====
+  if (srcType->isPointerTy() && targetType->isPointerTy()) {
+    return builder.CreateBitCast(val, targetType);
+  }
+
+  if (srcType->isPointerTy() && targetType->isIntegerTy()) {
+    return builder.CreatePtrToInt(val, targetType);
+  }
+
+  if (srcType->isIntegerTy() && targetType->isPointerTy()) {
+    return builder.CreateIntToPtr(val, targetType);
+  }
+
+  llvm::errs() << "Unsupported cast\n";
+  return nullptr;
+}
+
+llvm::Value *CastNode::codegen(CodegenContext &cc) {
+  llvm::Value *v = Value->codegen(cc);
+  return castValue(*cc.Builder, v, targetType, true);
 }
 
 // int main() {

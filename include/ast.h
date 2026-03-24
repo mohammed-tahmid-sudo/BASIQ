@@ -4,6 +4,7 @@
 #include <llvm-18/llvm/IR/LLVMContext.h>
 #include <llvm-18/llvm/IR/Type.h>
 #include <llvm-18/llvm/IR/Value.h>
+#include <llvm-18/llvm/Support/Endian.h>
 #include <memory>
 #include <string>
 #include <strings.h>
@@ -329,10 +330,13 @@ struct DeReferenceNode : ast {
   llvm::Value *codegen(CodegenContext &cc) override;
 };
 
-struct VaStartNode : ast {
-  llvm::Value *val;
-  VaStartNode(llvm::Value *V) : val(V) {}
-  std::string repr() override { return "VAStartNode"; }
+struct CastNode : ast {
+  std::unique_ptr<ast> Value;
+  llvm::Type *targetType;
+
+  CastNode(std::unique_ptr<ast> V, llvm::Type *type)
+      : Value(std::move(V)), targetType(type){}
+  std::string repr() override { return "CastNode"; }
 
   llvm::Value *codegen(CodegenContext &cc) override;
 };

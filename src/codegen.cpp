@@ -20,15 +20,16 @@
 #include <stdexcept>
 #include <vector>
 
-llvm::Type *GetPointeeType(llvm::Type *type, llvm::LLVMContext &context) {
-  if (type == llvm::PointerType::get(llvm::Type::getInt32Ty(context), 0))
-    return llvm::Type::getInt32Ty(context);
-  if (type == llvm::PointerType::get(llvm::Type::getFloatTy(context), 0))
-    return llvm::Type::getFloatTy(context);
-  if (type == llvm::PointerType::get(llvm::Type::getInt8Ty(context), 0))
-    return llvm::Type::getInt8Ty(context);
-  if (type == llvm::PointerType::get(llvm::Type::getInt1Ty(context), 0))
-    return llvm::Type::getInt1Ty(context);
+llvm::Type *GetPointeeType(Token typeToken, llvm::LLVMContext &context) {
+  std::string t = typeToken.value;
+  for (char &c : t)
+    c = toupper(c);
+
+  if (t.size() > 7 && t.substr(t.size() - 7) == "POINTER") {
+    Token baseToken;
+    baseToken.value = t.substr(0, t.size() - 7); // strip "POINTER"
+    return GetTypeNonVoid(baseToken, context); // "CHAR" -> i8, "INTEGER" -> i32
+  }
   return nullptr;
 }
 
@@ -77,7 +78,6 @@ llvm::Value *CharNode::codegen(CodegenContext &cc) {
 }
 
 llvm::Value *IntegerNode::codegen(CodegenContext &cc) {
-
   return llvm::ConstantInt::get(llvm::Type::getInt32Ty(*cc.TheContext), val,
                                 true);
 }
@@ -224,7 +224,7 @@ llvm::Value *CompoundNode::codegen(CodegenContext &cc) {
 llvm::Value *FunctionNode::codegen(CodegenContext &cc) {
   std::vector<llvm::Type *> argTypes;
   for (auto &a : args)
-    argTypes.push_back(a.second);
+    argTypes.push_back(std::get<1>(a)); // was a.second
 
   llvm::Type *retTy = GetTypeVoid(ReturnType, *cc.TheContext);
   auto *FT = llvm::FunctionType::get(retTy, argTypes, isVaridic);
@@ -237,22 +237,36 @@ llvm::Value *FunctionNode::codegen(CodegenContext &cc) {
 
   unsigned i = 0;
   for (auto &arg : Fn->args()) {
-    const auto &argName = args[i++].first;
+    const auto &argName = std::get<0>(args[i]);      // was args[i].first
+    llvm::Type *declaredType = std::get<1>(args[i]); // was args[i].second
+    i++;
+
     arg.setName(argName);
     llvm::Type *argType = arg.getType();
     auto *alloca = cc.Builder->CreateAlloca(argType, nullptr, argName);
     cc.Builder->CreateStore(&arg, alloca);
 
     llvm::Type *pointeeType = nullptr;
-    if (argType->isPointerTy())
-      pointeeType = GetPointeeType(argType, *cc.TheContext);
+    if (argType->isPointerTy()) {
+      auto &ctx = *cc.TheContext;
+      if (declaredType == llvm::PointerType::get(llvm::Type::getInt8Ty(ctx), 0))
+        pointeeType = llvm::Type::getInt8Ty(ctx);
+      else if (declaredType ==
+               llvm::PointerType::get(llvm::Type::getInt32Ty(ctx), 0))
+        pointeeType = llvm::Type::getInt32Ty(ctx);
+      else if (declaredType ==
+               llvm::PointerType::get(llvm::Type::getFloatTy(ctx), 0))
+        pointeeType = llvm::Type::getFloatTy(ctx);
+      else if (declaredType ==
+               llvm::PointerType::get(llvm::Type::getInt1Ty(ctx), 0))
+        pointeeType = llvm::Type::getInt1Ty(ctx);
+    }
 
     cc.addVariable(argName, alloca, argType, pointeeType);
   }
 
   llvm::Value *retVal = content->codegen(cc);
 
-  // Check the CURRENT insert block, not the entry block
   llvm::BasicBlock *currentBB = cc.Builder->GetInsertBlock();
   if (!currentBB->getTerminator()) {
     if (retTy->isVoidTy()) {
@@ -446,23 +460,29 @@ llvm::Value *BinaryOperationNode::codegen(CodegenContext &cc) {
   case TokenType::MINUS:
   case TokenType::STAR:
   case TokenType::SLASH: {
+    // If either operand is i1, promote to i32
     auto *i32 = llvm::Type::getInt32Ty(*cc.TheContext);
-
     if (LHS->getType()->isIntegerTy(1))
       LHS = cc.Builder->CreateIntCast(LHS, i32, true);
-
     if (RHS->getType()->isIntegerTy(1))
       RHS = cc.Builder->CreateIntCast(RHS, i32, true);
 
+    // If types still mismatch, cast RHS to match LHS
+    if (LHS->getType() != RHS->getType()) {
+      if (LHS->getType()->isIntegerTy() && RHS->getType()->isIntegerTy()) {
+        RHS = cc.Builder->CreateIntCast(RHS, LHS->getType(), true);
+      } else {
+        throw std::runtime_error(
+            "Cannot perform arithmetic on incompatible types");
+      }
+    }
+
     if (Type == TokenType::PLUS)
       return cc.Builder->CreateAdd(LHS, RHS, "addtmp");
-
     if (Type == TokenType::MINUS)
       return cc.Builder->CreateSub(LHS, RHS, "subtmp");
-
     if (Type == TokenType::STAR)
       return cc.Builder->CreateMul(LHS, RHS, "multmp");
-
     if (Type == TokenType::SLASH)
       return cc.Builder->CreateSDiv(LHS, RHS, "divtmp");
   }
@@ -933,7 +953,6 @@ llvm::Value *DeReferenceNode::codegen(CodegenContext &cc) {
     llvm::errs() << "Unknown variable '" << name << "'\n";
     return nullptr;
   }
-
   llvm::Type *ptrType = cc.lookupType(name);
   if (!ptrType || !ptrType->isPointerTy()) {
     llvm::errs() << "'" << name << "' is not a pointer\n";
@@ -941,8 +960,17 @@ llvm::Value *DeReferenceNode::codegen(CodegenContext &cc) {
   }
 
   llvm::Value *ptrVal = cc.Builder->CreateLoad(ptrType, var, name + "_ptr");
-
   llvm::Type *elementType = cc.lookupElementType(name);
+
+  llvm::errs() << "DeReferenceNode '" << name << "' elementType: ";
+  elementType->print(llvm::errs());
+  llvm::errs() << "\n";
+
+  // If there's an index, apply GEP before loading
+  if (index) {
+    llvm::Value *idx = index->codegen(cc);
+    ptrVal = cc.Builder->CreateGEP(elementType, ptrVal, {idx}, "ptr_elem");
+  }
 
   return cc.Builder->CreateLoad(elementType, ptrVal, "deref_" + name);
 }

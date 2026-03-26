@@ -117,3 +117,16 @@ std::string ArrayAccessNode::repr() {
          ")";
 }
 
+std::string ArrayAssignNode::repr() {
+  return "ArrayAssignNode(Name=" + name + ", Index=" + index->repr() +
+         ", Value=" + value->repr() + ")";
+}
+
+std::string SizeOfNode::repr() { return "SizeOfNode(" + val->repr() + ")"; }
+
+std::string PointerReferenceNode::repr() { return "PointerReferenceNode"; }
+
+std::string PointerDeReferenceAssingNode::repr() {
+  return "PointerDeReferenceAssingNode=" + name + ", Index=" + index->repr() +
+         ", Value=" + val->repr() + ")";
+}

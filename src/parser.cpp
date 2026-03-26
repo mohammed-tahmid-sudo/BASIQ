@@ -37,6 +37,13 @@ Token Parser::Peek() {
   return {TokenType::EOF_TOKEN, ""};
 }
 
+Token Parser::PeekNext() {
+  if (x + 1 < input.size()) {
+    return input[x + 1];
+  }
+  return {TokenType::EOF_TOKEN, ""};
+}
+
 Token Parser::Consume() {
   if (x < input.size()) {
     return input[x++]; // return current, then advance
@@ -139,6 +146,11 @@ std::unique_ptr<ast> Parser::ParseFactor() {
     return std::make_unique<ArrayLiteralNode>(nullptr, std::move(elements));
 
   } else if (Peek().type == TokenType::IDENTIFIER) {
+
+    // std::cout << Colors::RED << "Comming here " << Peek().value <<
+    // Colors::RESET
+    //           << std::endl;
+
     Token name = Peek();
     Consume();
     if (Peek().type == EQ) {
@@ -246,10 +258,10 @@ std::unique_ptr<ast> Parser::ParseFactor() {
           return std::make_unique<PointerDeReferenceAssingNode>(
               v.value, std::move(val), std::move(idx));
         }
-        return std::make_unique<DeReferenceNode>(v.value);
+        return std::make_unique<DeReferenceNode>(v.value, std::move(idx));
       }
 
-      return std::make_unique<DeReferenceNode>(v.value);
+      return std::make_unique<DeReferenceNode>(v.value, nullptr);
     }
     std::cerr << "Huh";
     return nullptr;
@@ -365,7 +377,7 @@ std::unique_ptr<FunctionNode> Parser::ParseFunction() {
   bool varidicType = false;
   Token name = Expect(TokenType::IDENTIFIER);
   Expect(LPAREN);
-  std::vector<std::pair<std::string, llvm::Type *>> args;
+  std::vector<std::tuple<std::string, llvm::Type *>> args;
 
   while (Peek().type != RPAREN) {
     Token paramName = Expect(IDENTIFIER);
@@ -504,8 +516,11 @@ std::unique_ptr<ForNode> Parser::ParseFor() {
 }
 
 std::unique_ptr<ast> Parser::ParseAssignment() {
-  Token name = Expect(IDENTIFIER);
-
+  Token name;
+  if (Peek().type == IDENTIFIER && PeekNext().type == EQ ||
+      PeekNext().type == LBRACKET) {
+    name = Expect(IDENTIFIER);
+  }
   if (Peek().type == EQ) {
     Consume();
     auto val = ParseExpression();
@@ -642,25 +657,16 @@ void saveIRAndCompile(llvm::Module *module, const std::string &filename) {
 int main() {
   // --- Source Code to Compile ---
   std::string src = R"(
-// func to_upper(c:Char*) -> Void {
-//     let i:Integer = 0;
-//     while (*c[i] != 0) {
-//         if *c[i] >= 97 && *c[i] <= 122 {
-//             *c[i] = *c[i] - 32;
-//         }
-//         i = i + 1;
-//     }
-// }
 
-// func to_lower(c:Char*) -> Void {
-//     let i:Integer = 0;
-//     while (*c[i] != 0) {
-//         if *c[i] >= 65 && *c[i] <= 90 {
-//             *c[i] = *c[i] + 32;
-//         }
-//         i = i + 1;
-//     }
-// }
+func to_lower(c:Char*) -> Void {
+    let i:Integer = 0;
+    while (*c[i] != '\0') {
+        if *c[i] >= 'A' && *c[i] <= 'Z' {
+            *c[i] = (Char)(*c[i] + ('a' - 'A'));
+        }
+        i = i + 1;
+    }
+}
 
 // func string_concat(a:Char*, b:Char*) -> Void {
 //     let i:Integer = 0;
@@ -707,13 +713,25 @@ int main() {
 //     }
 // }
 
+func to_upper(c:Char*) -> Void {
+    let i:Integer = 0;
+    while (*c[i] != '\0') {
+        if *c[i] >= 'a' && *c[i] <= 'z' {
+            *c[i] = (Char)(*c[i] - ('a' - 'A'));
+        }
+        i = i + 1;
+    }
+}
 func main() -> Integer {
-    let a:Char[255] = "hello world";
+    // let a:Char[255] = "HELLO WORLD";
+	// to_upper(&a);
+	// to_lower(&a);
+	let b:Char[255] = " "; 
+	let c:Integer = 12;
+	
+	// itoa(c, &b); 
 
-	a[2] = 'k';
-
-    @Syscall(1, 1, &a, 11, 0, 0);
-
+    @Syscall(1, 1, &b, 11, 0, 0);
     return 0;
 }
 )";
@@ -742,10 +760,10 @@ func main() -> Integer {
   Parser parser(program, "MYMODULE");
   auto astNodes = parser.Parse();
 
-  // std::cout << "AST Nodes:\n";
-  // for (auto &v : astNodes) {
-  //   std::cout << v->repr() << std::endl;
-  // }
+  std::cout << "AST Nodes:\n";
+  for (auto &v : astNodes) {
+    std::cout << v->repr() << std::endl;
+  }
 
   // --- Code Generation ---
   auto &cc = parser.getCodegenContext();

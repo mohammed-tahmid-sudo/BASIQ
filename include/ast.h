@@ -148,13 +148,13 @@ struct CompoundNode : ast {
 
 struct FunctionNode : ast {
   std::string name;
-  std::vector<std::pair<std::string, llvm::Type *>> args;
+  std::vector<std::tuple<std::string, llvm::Type *>> args;
   bool isVaridic;
   std::unique_ptr<ast> content;
   Token ReturnType;
 
   FunctionNode(const std::string &s,
-               std::vector<std::pair<std::string, llvm::Type *>> ars,
+               std::vector<std::tuple<std::string, llvm::Type *>> ars,
                std::unique_ptr<ast> cntnt, Token RetType, bool varidic)
       : name(s), args(ars), content(std::move(cntnt)), ReturnType(RetType),
         isVaridic(varidic) {}
@@ -273,7 +273,7 @@ struct ArrayAssignNode : ast {
                   std::unique_ptr<ast> val)
       : name(n), index(std::move(idx)), value(std::move(val)) {}
 
-  std::string repr() override { return "ArrayAssign(" + name + ")"; }
+  std::string repr() override;
 
   llvm::Value *codegen(CodegenContext &cc) override;
 };
@@ -282,13 +282,12 @@ struct SizeOfNode : ast {
   std::unique_ptr<ast> val;
 
   SizeOfNode(std::unique_ptr<ast> valval) : val(std::move(valval)) {}
-  std::string repr() override { return "SizeOfNode(" + val->repr() + ")"; }
+  std::string repr() override;
 
   llvm::Value *codegen(CodegenContext &cc) override;
 };
 
 struct SyscallNode : ast {
-  // std::string name;
   int name;
   std::vector<std::unique_ptr<ast>> args;
   SyscallNode(int syscall_name, std::vector<std::unique_ptr<ast>> syscall_args)
@@ -302,7 +301,7 @@ struct PointerReferenceNode : ast {
   std::string name;
   PointerReferenceNode(const std::string &s) : name(s) {}
 
-  std::string repr() override { return "PointerReferenceNode"; }
+  std::string repr() override;
 
   llvm::Value *codegen(CodegenContext &cc) override;
 };
@@ -316,15 +315,17 @@ struct PointerDeReferenceAssingNode : ast {
                                std::unique_ptr<ast> i)
       : name(n), val(std::move(v)), index(std::move(i)) {}
 
-  std::string repr() override { return "PointerDeReferenceAssignNode"; }
+  std::string repr() override;
 
   llvm::Value *codegen(CodegenContext &cc) override;
 };
 
 struct DeReferenceNode : ast {
   std::string name;
+  std::unique_ptr<ast> index;
 
-  DeReferenceNode(const std::string &n) : name(n) {}
+  DeReferenceNode(const std::string &n, std::unique_ptr<ast> idx)
+      : name(n), index(std::move(idx)) {}
   std::string repr() override { return "PointerDeReferenceNode"; }
 
   llvm::Value *codegen(CodegenContext &cc) override;
@@ -335,7 +336,7 @@ struct CastNode : ast {
   llvm::Type *targetType;
 
   CastNode(std::unique_ptr<ast> V, llvm::Type *type)
-      : Value(std::move(V)), targetType(type){}
+      : Value(std::move(V)), targetType(type) {}
   std::string repr() override { return "CastNode"; }
 
   llvm::Value *codegen(CodegenContext &cc) override;

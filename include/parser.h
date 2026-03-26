@@ -11,6 +11,7 @@ public:
   Parser(std::vector<Token> inp, const std::string &s) : input(inp), cc(s) {}
   CodegenContext &getCodegenContext() { return cc; }
   Token Peek();
+  Token PeekNext();
   Token Consume();
   Token Expect(TokenType tk);
 

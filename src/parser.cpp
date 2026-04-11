@@ -705,7 +705,7 @@ func string_concat(a:Char*, b:Char*) -> Void {
     *a[i + j] = 0;
 }
 
-func itoa(n:Integer, str:Char*) -> Void {
+func itoa(n:Integer, str:Char*) -> Integer  {
     let i:Integer = 0;
     let isNegetive:Boolean = false;
 
@@ -713,7 +713,7 @@ func itoa(n:Integer, str:Char*) -> Void {
         *str[i] = '0';        ///////////////////////
         i = i + 1;
         *str[i] = '\0';       ///////////////////////
-        return;
+        return i;
     }
 
     if n < 0 {
@@ -745,6 +745,8 @@ func itoa(n:Integer, str:Char*) -> Void {
         j = j + 1;
         k = k - 1;
     }
+
+  return i;
 }
 
 
@@ -761,12 +763,12 @@ func printf(str: Char*, vals: Char*) -> Void {
 				j = j + 1;
 				i = i + 1;
 			} else if *str[i] =='d' {
-				let val:Integer = (Integer)(*val[j]);
+				let val:Integer = (Integer)*vals[j];
 				let cptr:Char[32];
 
-				itoa(val, &cptr);
+				let len:Integer = itoa(val, &cptr);
 
-				@Syscall(1, 1, &cptr, 1, 0, 0);
+				@Syscall(1, 1, &cptr, len, 0, 0);
 				j = j + 1;
 				i = i + 1;
 			}
@@ -796,12 +798,12 @@ func main() -> Integer {
     let name:Char[25];
 	let num:Integer = 42;
     
-    // let args:Char[2] = [name];
+    let args:Char[2] = [(Char)(num)];
     
 
     // printf("Hello %s,  ", (Char*)&args);
-	itoa(588, &name)
-	// printf("Hello %s", &args);  
+	// itoa(588, &name)
+	printf("Hello %d", &args);  
 		// @Syscall(1, 1, &name , sizeof(name), 0, 0);
 	
     return 0;

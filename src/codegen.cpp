@@ -462,10 +462,10 @@ llvm::Value *BinaryOperationNode::codegen(CodegenContext &cc) {
   if (!LHS || !RHS)
     throw std::runtime_error("null operand in binary operation");
 
-  // LHS->getType()->print(llvm::errs());
-  // llvm::errs() << "\n";
-  // RHS->getType()->print(llvm::errs());
-  // llvm::errs() << "\n";
+  LHS->getType()->print(llvm::errs());
+  llvm::errs() << "\n";
+  RHS->getType()->print(llvm::errs());
+  llvm::errs() << "\n";
 
   switch (Type) {
 

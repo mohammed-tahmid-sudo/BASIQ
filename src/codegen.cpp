@@ -1046,26 +1046,17 @@ llvm::Value *CastNode::codegen(CodegenContext &cc) {
 }
 
 llvm::Value *StructCreateNode::codegen(CodegenContext &cc) {
-  llvm::LLVMContext &context = *cc.TheContext;
+  llvm::StructType *TheStruct = llvm::StructType::create(*cc.TheContext, name);
+  std::vector<llvm::Type *> fieldTypes;
+  fieldTypes.reserve(types.size());
 
-  // LLVM 15+ way to lookup struct
-  llvm::StructType *structType = llvm::StructType::getTypeByName(context, name);
-
-  if (!structType) {
-    // Create new struct
-    structType = llvm::StructType::create(context, name);
-    structType->setBody(types, false);
-  } else {
-    // Handle forward declaration
-    if (structType->isOpaque()) {
-      structType->setBody(types, false);
-    }
+  for (const auto &p : types) {
+    fieldTypes.push_back(p.second);
   }
 
-  // Store in your context (type, not value)
-  cc.addVariable(name, nullptr, structType, nullptr);
+  TheStruct->setBody(fieldTypes);
 
-  return nullptr; // no runtime value
+  return nullptr;
 }
 
 // int main() {

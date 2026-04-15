@@ -1,5 +1,6 @@
 #pragma once
 #include "lexer.h"
+#include <llvm-18/llvm/IR/DerivedTypes.h>
 #include <llvm-18/llvm/IR/IRBuilder.h>
 #include <llvm-18/llvm/IR/LLVMContext.h>
 #include <llvm-18/llvm/IR/Type.h>
@@ -8,6 +9,7 @@
 #include <memory>
 #include <string>
 #include <strings.h>
+#include <utility>
 #include <vector>
 
 struct VWT {
@@ -16,11 +18,17 @@ struct VWT {
   llvm::Type *elementType;
 };
 
+struct StructIndex {
+  llvm::StructType *TheStruct;
+  std::vector<std::pair<std::string, int>> index;
+};
+
 struct CodegenContext {
   std::unique_ptr<llvm::LLVMContext> TheContext;
   std::unique_ptr<llvm::IRBuilder<>> Builder;
   std::unique_ptr<llvm::Module> Module;
   std::vector<std::unordered_map<std::string, VWT>> NamedValuesStack;
+  std::vector<std::pair<std::string, StructIndex *>> StructIndexList;
 
   llvm::BasicBlock *BreakBB = nullptr;
   llvm::BasicBlock *ContinueBB = nullptr;
@@ -343,11 +351,12 @@ struct CastNode : ast {
 };
 
 struct StructCreateNode : ast {
-  std::vector<llvm::Type*> types;
+  std::vector<std::pair<std::string, llvm::Type *>> types;
   std::string name;
-  StructCreateNode(std::string &s, std::vector<llvm::Type*> tps) : name(s), types(tps) {}
+  StructCreateNode(std::string &s,
+                   std::vector<std::pair<std::string, llvm::Type *>> tps)
+      : name(s), types(tps) {}
   std::string repr() override { return "CastNode"; }
 
   llvm::Value *codegen(CodegenContext &cc) override;
-
 };
